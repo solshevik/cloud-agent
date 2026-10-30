@@ -10,7 +10,7 @@ import type {
 } from '../types.js';
 
 import { sanitizeJsonSchema, stripCacheControl } from './schema.cleaner.js';
-import { scrubVendorIdentities } from './prompt.scrubber.js';
+import { cleanSystemPrompt, scrubVendorIdentities } from './prompt.scrubber.js';
 
 export interface AnthropicContentPart {
   type: 'text' | 'image' | 'tool_use' | 'tool_result';
@@ -66,7 +66,7 @@ export class AnthropicAdapter {
     }
 
     if (systemPrompt) {
-      systemPrompt = scrubVendorIdentities(systemPrompt);
+      systemPrompt = cleanSystemPrompt(systemPrompt);
     }
 
     const messages: UnifiedMessage[] = (body.messages || []).map((msg) => {

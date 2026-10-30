@@ -7,7 +7,7 @@ import type {
 } from '../types.js';
 
 import { sanitizeJsonSchema } from './schema.cleaner.js';
-import { scrubVendorIdentities } from './prompt.scrubber.js';
+import { cleanSystemPrompt, scrubVendorIdentities } from './prompt.scrubber.js';
 
 export interface GeminiPart {
   text?: string;
@@ -63,7 +63,10 @@ export class GeminiAdapter {
     // Extract system prompt and any system-role messages into systemInstruction
     const systemParts: Array<{ text: string }> = [];
     if (req.systemPrompt) {
-      systemParts.push({ text: scrubVendorIdentities(req.systemPrompt) });
+      const cleaned = cleanSystemPrompt(req.systemPrompt);
+      if (cleaned) {
+        systemParts.push({ text: cleaned });
+      }
     }
 
     const nonSystemMessages: UnifiedMessage[] = [];
@@ -75,7 +78,10 @@ export class GeminiAdapter {
             ? msg.content.filter((p) => p.type === 'text').map((p: any) => p.text).join('\n')
             : '';
         if (text.trim()) {
-          systemParts.push({ text: scrubVendorIdentities(text.trim()) });
+          const cleaned = cleanSystemPrompt(text.trim());
+          if (cleaned) {
+            systemParts.push({ text: cleaned });
+          }
         }
       } else {
         nonSystemMessages.push(msg);

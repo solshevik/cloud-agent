@@ -4,6 +4,7 @@ import express, { type Request, type Response } from 'express';
 
 import { AnthropicAdapter } from './adapters/anthropic.adapter.js';
 import { OpenAIAdapter } from './adapters/openai.adapter.js';
+import { cleanSystemPrompt } from './adapters/prompt.scrubber.js';
 import { backendRouter } from './backends/backend.router.js';
 import { gatewayAuthMiddleware } from './gateway.auth.js';
 
@@ -63,6 +64,13 @@ gatewayRoutes.post('/messages', async (req: Request, res: Response) => {
     }
 
     const unifiedRequest = AnthropicAdapter.parseRequest(rawBody);
+    unifiedRequest.sessionId =
+      (req.headers['x-session-id'] as string) ||
+      (req.headers['session-id'] as string) ||
+      (req.headers['x-conversation-id'] as string) ||
+      (rawBody.metadata && typeof rawBody.metadata.session_id === 'string' ? rawBody.metadata.session_id : undefined) ||
+      (typeof rawBody.session_id === 'string' ? rawBody.session_id : undefined);
+
     const messageId = `msg_${crypto.randomBytes(12).toString('hex')}`;
 
     if (unifiedRequest.stream) {
@@ -81,7 +89,10 @@ gatewayRoutes.post('/messages', async (req: Request, res: Response) => {
       } catch (streamErr: any) {
         console.error('Streaming error in /v1/messages:', streamErr);
         res.write(`event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: 'api_error', message: streamErr.message } })}\n\n`);
-        res.end();
+      } finally {
+        if (!res.writableEnded) {
+          res.end();
+        }
       }
     } else {
       const { response } = await backendRouter.execute(unifiedRequest);
@@ -119,6 +130,13 @@ gatewayRoutes.post('/chat/completions', async (req: Request, res: Response) => {
     }
 
     const unifiedRequest = OpenAIAdapter.parseRequest(rawBody);
+    unifiedRequest.sessionId =
+      (req.headers['x-session-id'] as string) ||
+      (req.headers['session-id'] as string) ||
+      (req.headers['x-conversation-id'] as string) ||
+      (rawBody.metadata && typeof rawBody.metadata.session_id === 'string' ? rawBody.metadata.session_id : undefined) ||
+      (typeof rawBody.session_id === 'string' ? rawBody.session_id : undefined);
+
     const completionId = `chatcmpl-${crypto.randomBytes(12).toString('hex')}`;
 
     if (unifiedRequest.stream) {
@@ -138,7 +156,10 @@ gatewayRoutes.post('/chat/completions', async (req: Request, res: Response) => {
         console.error('Streaming error in /v1/chat/completions:', streamErr);
         res.write(`data: ${JSON.stringify({ error: { message: streamErr.message, type: 'api_error' } })}\n\n`);
         res.write('data: [DONE]\n\n');
-        res.end();
+      } finally {
+        if (!res.writableEnded) {
+          res.end();
+        }
       }
     } else {
       const { response } = await backendRouter.execute(unifiedRequest);
@@ -197,7 +218,7 @@ geminiGatewayRoutes.post('/models/:modelAndAction', async (req: Request, res: Re
           return { type: 'text', text: '' };
         }),
       })),
-      systemPrompt: geminiPayload.systemInstruction?.parts?.map((p: any) => p.text).join('\n'),
+      systemPrompt: cleanSystemPrompt(geminiPayload.systemInstruction?.parts?.map((p: any) => p.text).join('\n')),
       tools: geminiPayload.tools?.[0]?.functionDeclarations?.map((f: any) => ({
         name: f.name,
         description: f.description,
@@ -212,36 +233,41 @@ geminiGatewayRoutes.post('/models/:modelAndAction', async (req: Request, res: Re
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
 
-      await backendRouter.executeStream(unifiedRequest, (chunk) => {
-        const parts: any[] = [];
-        if (chunk.thinking) {
-          parts.push({ text: chunk.thinking, thought: true });
-        }
-        if (chunk.text) {
-          parts.push({ text: chunk.text });
-        }
-        if (chunk.toolCalls) {
-          for (const tc of chunk.toolCalls) {
-            parts.push({
-              functionCall: {
-                name: tc.name,
-                args: tc.argumentsJson ? JSON.parse(tc.argumentsJson) : {},
-              },
-            });
+      try {
+        await backendRouter.executeStream(unifiedRequest, (chunk) => {
+          const parts: any[] = [];
+          if (chunk.thinking) {
+            parts.push({ text: chunk.thinking, thought: true });
           }
-        }
+          if (chunk.text) {
+            parts.push({ text: chunk.text });
+          }
+          if (chunk.toolCalls) {
+            for (const tc of chunk.toolCalls) {
+              parts.push({
+                functionCall: {
+                  name: tc.name,
+                  args: tc.argumentsJson ? JSON.parse(tc.argumentsJson) : {},
+                },
+              });
+            }
+          }
 
-        const data = {
-          candidates: [
-            {
-              content: { role: 'model', parts },
-              finishReason: chunk.finishReason === 'stop' ? 'STOP' : undefined,
-            },
-          ],
-        };
-        res.write(`data: ${JSON.stringify(data)}\n\n`);
-      });
-      res.end();
+          const data = {
+            candidates: [
+              {
+                content: { role: 'model', parts },
+                finishReason: chunk.finishReason === 'stop' ? 'STOP' : undefined,
+              },
+            ],
+          };
+          res.write(`data: ${JSON.stringify(data)}\n\n`);
+        });
+      } finally {
+        if (!res.writableEnded) {
+          res.end();
+        }
+      }
     } else {
       const { response } = await backendRouter.execute(unifiedRequest);
       const parts: any[] = [];

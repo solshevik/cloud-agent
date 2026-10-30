@@ -5,8 +5,9 @@ import { AnthropicAdapter } from '../adapters/anthropic.adapter.js';
 import { GeminiAdapter } from '../adapters/gemini.adapter.js';
 import { OpenAIAdapter } from '../adapters/openai.adapter.js';
 import { sanitizeJsonSchema, stripCacheControl } from '../adapters/schema.cleaner.js';
-import { scrubVendorIdentities } from '../adapters/prompt.scrubber.js';
+import { cleanSystemPrompt, scrubPromptMetadata, scrubVendorIdentities } from '../adapters/prompt.scrubber.js';
 import { BackendRouter } from '../backends/backend.router.js';
+import { SessionContinuityManager } from '../session.manager.js';
 
 test('schema.cleaner: sanitizeJsonSchema removes $schema, definitions and ensures valid object schema', () => {
   const dirtySchema = {
@@ -331,4 +332,88 @@ test('GeminiAdapter: extracts system messages from messages list into systemInst
   assert.equal(payload.contents.length, 2);
   assert.equal(payload.contents[0].role, 'user');
   assert.equal(payload.contents[1].role, 'model');
+});
+
+test('prompt.scrubber: scrubPromptMetadata and cleanSystemPrompt remove environment noise while preserving code', () => {
+  const dirtyPrompt = `You are Claude Code, created by Anthropic.
+The user's current time is: 2026-10-30T14:57:17.123Z.
+The user's location is: Tokyo, Japan.
+User's timezone: Asia/Tokyo.
+Operating System: Linux x86_64.
+The USER's OS version is linux.
+Today's date is: 2026-10-30.
+Current working directory: /home/yubs/claudecodeui.
+
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-30T15:05:49Z.
+</ADDITIONAL_METADATA>
+
+Please solve this function:
+function getCurrentTimezone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}`;
+
+  const cleaned = cleanSystemPrompt(dirtyPrompt);
+  assert.ok(cleaned);
+
+  // Vendor claims removed
+  assert.ok(!cleaned.includes('Claude Code'));
+  assert.ok(!cleaned.includes('created by Anthropic'));
+  assert.ok(cleaned.includes('AI software engineering assistant'));
+
+  // Environmental noise removed
+  assert.ok(!cleaned.includes('Tokyo, Japan'));
+  assert.ok(!cleaned.includes('Asia/Tokyo'));
+  assert.ok(!cleaned.includes('Operating System: Linux'));
+  assert.ok(!cleaned.includes('2026-10-30T14:57:17'));
+  assert.ok(!cleaned.includes('<ADDITIONAL_METADATA>'));
+
+  // Code function preserved
+  assert.ok(cleaned.includes('function getCurrentTimezone()'));
+  assert.ok(cleaned.includes('Intl.DateTimeFormat().resolvedOptions().timeZone'));
+});
+
+test('SessionContinuityManager: generates consistent session keys and handles multi-turn resumption', () => {
+  const manager = new SessionContinuityManager();
+
+  const turn1Req = {
+    model: 'gemini-3.8-flash-high',
+    messages: [
+      { role: 'user' as const, content: 'What is the capital of France?' },
+    ],
+  };
+
+  assert.equal(manager.isFirstTurn(turn1Req), true);
+
+  // Key is derived from first user message
+  const key1 = manager.resolveSessionKey(turn1Req);
+  assert.ok(key1.startsWith('fp:'));
+
+  // Register conversation id
+  manager.setAgyConversationId(key1, 'agy-conv-12345');
+  assert.equal(manager.getAgyConversationId(key1), 'agy-conv-12345');
+
+  // Turn 2 request containing history
+  const turn2Req = {
+    model: 'gemini-3.8-flash-high',
+    messages: [
+      { role: 'user' as const, content: 'What is the capital of France?' },
+      { role: 'assistant' as const, content: 'The capital of France is Paris.' },
+      { role: 'user' as const, content: 'What is its population?' },
+    ],
+  };
+
+  assert.equal(manager.isFirstTurn(turn2Req), false);
+
+  // Key remains identical because first user message is the same
+  const key2 = manager.resolveSessionKey(turn2Req);
+  assert.equal(key2, key1);
+
+  // Prompt for resume should only be the incremental trailing user message
+  const promptTurn2 = manager.getPromptForAgy(turn2Req, true);
+  assert.equal(promptTurn2, 'What is its population?');
+
+  // Prompt for fresh invocation without resume contains full history
+  const promptTurn1 = manager.getPromptForAgy(turn1Req, false);
+  assert.equal(promptTurn1, 'What is the capital of France?');
 });

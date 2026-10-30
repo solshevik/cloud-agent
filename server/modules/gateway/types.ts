@@ -56,6 +56,7 @@ export interface UnifiedChatRequest {
   stopSequences?: string[];
   thinkingBudget?: number;
   rawBody?: Record<string, unknown>;
+  sessionId?: string;
 }
 
 export interface UnifiedChunk {

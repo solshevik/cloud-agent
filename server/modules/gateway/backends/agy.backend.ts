@@ -2,7 +2,7 @@ import crossSpawn from 'cross-spawn';
 
 import type { GatewayBackend, UnifiedChatRequest, UnifiedChatResponse, UnifiedChunk } from '../types.js';
 import { resolveAgyCommand } from '../../providers/index.js';
-import { scrubVendorIdentities } from '../adapters/prompt.scrubber.js';
+import { sessionContinuityManager } from '../session.manager.js';
 
 export class AgyBackend implements GatewayBackend {
   public readonly id = 'agy';
@@ -33,36 +33,20 @@ export class AgyBackend implements GatewayBackend {
     return 'gemini-3.8-flash-high';
   }
 
-  private buildPrompt(request: UnifiedChatRequest): string {
-    const parts: string[] = [];
-
-    if (request.systemPrompt) {
-      parts.push(scrubVendorIdentities(request.systemPrompt));
+  /**
+   * Resolves thinking effort for agy CLI based on thinkingBudget.
+   * low: fastest, minimal thinking overhead (default for web/API gateways)
+   * medium: 1024 - 4096 tokens budget
+   * high: > 4096 tokens budget
+   */
+  private resolveEffort(request: UnifiedChatRequest): string {
+    const budget = request.thinkingBudget;
+    if (typeof budget === 'number') {
+      if (budget > 4096) return 'high';
+      if (budget > 1024) return 'medium';
+      return 'low';
     }
-
-    for (const msg of request.messages) {
-      if (msg.role === 'system') {
-        continue;
-      }
-      let contentStr = '';
-      if (typeof msg.content === 'string') {
-        contentStr = msg.content;
-      } else if (Array.isArray(msg.content)) {
-        contentStr = msg.content
-          .map((p) => {
-            if (p.type === 'text') return p.text;
-            if (p.type === 'tool_result') return `Tool result: ${p.content}`;
-            return '';
-          })
-          .join('\n');
-      }
-
-      if (contentStr.trim()) {
-        parts.push(contentStr.trim());
-      }
-    }
-
-    return parts.join('\n\n');
+    return 'low';
   }
 
   public async executeStream(
@@ -71,15 +55,28 @@ export class AgyBackend implements GatewayBackend {
   ): Promise<void> {
     const command = resolveAgyCommand() || 'agy';
     const model = this.resolveModelName(request.model);
-    const prompt = this.buildPrompt(request);
+    const effort = this.resolveEffort(request);
+
+    // Resolve session continuity
+    const sessionKey = sessionContinuityManager.resolveSessionKey(request);
+    const isFirstTurn = sessionContinuityManager.isFirstTurn(request);
+    const conversationId = isFirstTurn ? undefined : sessionContinuityManager.getAgyConversationId(sessionKey);
+    const isResume = Boolean(conversationId);
+
+    const prompt = sessionContinuityManager.getPromptForAgy(request, isResume);
 
     const args = [
       '-p', prompt,
       '--model', model,
+      '--effort', effort,
       '--output-format', 'stream-json',
       '--dangerously-skip-permissions',
       '--disable-slash-commands',
     ];
+
+    if (conversationId) {
+      args.unshift('--conversation', conversationId);
+    }
 
     return new Promise((resolve, reject) => {
       const child = crossSpawn(command, args, {
@@ -94,6 +91,7 @@ export class AgyBackend implements GatewayBackend {
 
       let stdoutBuffer = '';
       let isCompleted = false;
+      let capturedConversationId: string | undefined;
 
       child.stdout?.on('data', (data: Buffer) => {
         stdoutBuffer += data.toString('utf8');
@@ -107,8 +105,13 @@ export class AgyBackend implements GatewayBackend {
           try {
             const event = JSON.parse(trimmed);
 
-            if (event.event === 'step_update' && event.step_update) {
+            if (event.event === 'init' && event.conversation_id) {
+              capturedConversationId = event.conversation_id;
+            } else if (event.event === 'step_update' && event.step_update) {
               const su = event.step_update;
+              if (su.conversation_id && !capturedConversationId) {
+                capturedConversationId = su.conversation_id;
+              }
               if (su.step_type === 'agent_response' && su.text_delta) {
                 onChunk({ text: su.text_delta });
               }
@@ -123,6 +126,9 @@ export class AgyBackend implements GatewayBackend {
               }
             } else if (event.event === 'result' && event.result) {
               isCompleted = true;
+              if (event.result.conversation_id && !capturedConversationId) {
+                capturedConversationId = event.result.conversation_id;
+              }
               if (event.result.usage) {
                 onChunk({
                   usage: {
@@ -146,9 +152,16 @@ export class AgyBackend implements GatewayBackend {
 
       child.on('close', (code: number) => {
         if (code === 0 || isCompleted) {
+          if (capturedConversationId) {
+            sessionContinuityManager.setAgyConversationId(sessionKey, capturedConversationId);
+          }
           onChunk({ finishReason: 'stop' });
           resolve();
         } else {
+          // If conversation resume failed, invalidate cached session mapping so next retry starts fresh
+          if (conversationId) {
+            sessionContinuityManager.removeSession(sessionKey);
+          }
           reject(new Error(`agy CLI exited with code ${code}: ${stderrOutput}`));
         }
       });
