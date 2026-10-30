@@ -81,8 +81,39 @@ export function scrubPromptMetadata(prompt: string): string {
   return cleaned.replace(/\n{3,}/g, '\n\n').trim();
 }
 
+const HARNESS_BLOCKS: RegExp[] = [
+  /<guidelines>[\s\S]*?<\/guidelines>/gi,
+  /<memory_management>[\s\S]*?<\/memory_management>/gi,
+  /<environment>[\s\S]*?<\/environment>/gi,
+  /<commit_attribution>[\s\S]*?<\/commit_attribution>/gi,
+  /<artifacts>[\s\S]*?<\/artifacts>/gi,
+  /<conversation_transcript>[\s\S]*?<\/conversation_transcript>/gi,
+  /<skills>[\s\S]*?<\/skills>/gi,
+  /<tools>[\s\S]*?<\/tools>/gi,
+  /<slash_commands>[\s\S]*?<\/slash_commands>/gi,
+  /<user_information>[\s\S]*?<\/user_information>/gi,
+  /<system_instructions>[\s\S]*?<\/system_instructions>/gi,
+  /<anthropic_guidelines>[\s\S]*?<\/anthropic_guidelines>/gi,
+];
+
 /**
- * Clean system prompt completely: vendor identity scrubbing + environmental metadata removal.
+ * Scrubs client harness-specific blocks (guidelines, memory_management, etc.)
+ * from system instructions so backend engines like agy or Gemini are not confused by
+ * foreign client harness instructions.
+ */
+export function scrubHarnessBlocks(prompt: string): string {
+  if (!prompt || typeof prompt !== 'string') return prompt;
+
+  let cleaned = prompt;
+  for (const block of HARNESS_BLOCKS) {
+    cleaned = cleaned.replace(block, '');
+  }
+
+  return cleaned.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/**
+ * Clean system prompt completely: vendor identity scrubbing + environmental metadata removal + harness block scrubbing.
  */
 export function cleanSystemPrompt(prompt?: string): string | undefined {
   if (!prompt || typeof prompt !== 'string') {
@@ -91,6 +122,7 @@ export function cleanSystemPrompt(prompt?: string): string | undefined {
 
   const identityCleaned = scrubVendorIdentities(prompt);
   const metadataCleaned = scrubPromptMetadata(identityCleaned);
-  return metadataCleaned || undefined;
+  const harnessCleaned = scrubHarnessBlocks(metadataCleaned);
+  return harnessCleaned || undefined;
 }
 

@@ -22,31 +22,22 @@ export class AgyBackend implements GatewayBackend {
     );
   }
 
-  private resolveModelName(requestedModel: string): string {
+  private resolveModelName(requestedModel: string, thinkingBudget?: number): string {
     const m = requestedModel.toLowerCase();
     if (m.includes('gemini-3.8-flash-medium')) return 'gemini-3.8-flash-medium';
     if (m.includes('gemini-3.8-flash-low')) return 'gemini-3.8-flash-low';
-    if (m.includes('gemini')) return 'gemini-3.8-flash-high';
+    if (m.includes('gemini-3.8-flash-high')) return 'gemini-3.8-flash-high';
+    if (m.includes('gemini') || m.includes('gemma')) {
+      if (typeof thinkingBudget === 'number') {
+        if (thinkingBudget > 4096) return 'gemini-3.8-flash-high';
+        if (thinkingBudget > 1024) return 'gemini-3.8-flash-medium';
+      }
+      return 'gemini-3.8-flash-low';
+    }
     if (m.includes('claude-opus')) return 'claude-opus-4-6-thinking';
     if (m.includes('claude')) return 'claude-sonnet-4-6';
     if (m.includes('gpt')) return 'gpt-oss-120b-medium';
-    return 'gemini-3.8-flash-high';
-  }
-
-  /**
-   * Resolves thinking effort for agy CLI based on thinkingBudget.
-   * low: fastest, minimal thinking overhead (default for web/API gateways)
-   * medium: 1024 - 4096 tokens budget
-   * high: > 4096 tokens budget
-   */
-  private resolveEffort(request: UnifiedChatRequest): string {
-    const budget = request.thinkingBudget;
-    if (typeof budget === 'number') {
-      if (budget > 4096) return 'high';
-      if (budget > 1024) return 'medium';
-      return 'low';
-    }
-    return 'low';
+    return 'gemini-3.8-flash-low';
   }
 
   public async executeStream(
@@ -54,8 +45,7 @@ export class AgyBackend implements GatewayBackend {
     onChunk: (chunk: UnifiedChunk) => void
   ): Promise<void> {
     const command = resolveAgyCommand() || 'agy';
-    const model = this.resolveModelName(request.model);
-    const effort = this.resolveEffort(request);
+    const model = this.resolveModelName(request.model, request.thinkingBudget);
 
     // Resolve session continuity
     const sessionKey = sessionContinuityManager.resolveSessionKey(request);
@@ -68,7 +58,6 @@ export class AgyBackend implements GatewayBackend {
     const args = [
       '-p', prompt,
       '--model', model,
-      '--effort', effort,
       '--output-format', 'stream-json',
       '--dangerously-skip-permissions',
       '--disable-slash-commands',
@@ -91,6 +80,8 @@ export class AgyBackend implements GatewayBackend {
 
       let stdoutBuffer = '';
       let isCompleted = false;
+      let hasEmittedText = false;
+      let errorMessage: string | undefined;
       let capturedConversationId: string | undefined;
 
       child.stdout?.on('data', (data: Buffer) => {
@@ -113,6 +104,7 @@ export class AgyBackend implements GatewayBackend {
                 capturedConversationId = su.conversation_id;
               }
               if (su.step_type === 'agent_response' && su.text_delta) {
+                hasEmittedText = true;
                 onChunk({ text: su.text_delta });
               }
               if (su.usage) {
@@ -125,7 +117,15 @@ export class AgyBackend implements GatewayBackend {
                 });
               }
             } else if (event.event === 'result' && event.result) {
-              isCompleted = true;
+              if (event.result.status === 'ERROR') {
+                errorMessage = event.result.error || 'agy execution error';
+              } else {
+                isCompleted = true;
+                if (!hasEmittedText && event.result.response) {
+                  hasEmittedText = true;
+                  onChunk({ text: event.result.response });
+                }
+              }
               if (event.result.conversation_id && !capturedConversationId) {
                 capturedConversationId = event.result.conversation_id;
               }
@@ -151,6 +151,14 @@ export class AgyBackend implements GatewayBackend {
       });
 
       child.on('close', (code: number) => {
+        if (errorMessage) {
+          if (conversationId) {
+            sessionContinuityManager.removeSession(sessionKey);
+          }
+          reject(new Error(`agy CLI error: ${errorMessage}`));
+          return;
+        }
+
         if (code === 0 || isCompleted) {
           if (capturedConversationId) {
             sessionContinuityManager.setAgyConversationId(sessionKey, capturedConversationId);

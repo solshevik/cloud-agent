@@ -128,11 +128,19 @@ export class SessionContinuityManager {
         targetMessages = request.messages.slice(lastAssistantIndex + 1);
       }
     } else {
-      // First turn: include cleaned system prompt
+      // First turn: include cleaned system prompt only if it contains custom instructions
       if (request.systemPrompt) {
         const cleanedSystem = cleanSystemPrompt(request.systemPrompt);
         if (cleanedSystem) {
-          parts.push(cleanedSystem);
+          const stripped = cleanedSystem
+            .replace(/You are an advanced AI software engineering assistant/gi, '')
+            .replace(/You are a helpful and intelligent AI programming assistant/gi, '')
+            .replace(/an intelligent AI coding CLI/gi, '')
+            .replace(/the AI assistant/gi, '')
+            .replace(/[.,;:\s]/g, '');
+          if (stripped.length > 0) {
+            parts.push(cleanedSystem);
+          }
         }
       }
     }
