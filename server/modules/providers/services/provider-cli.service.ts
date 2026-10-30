@@ -63,6 +63,11 @@ const CLI_UPDATERS: Partial<Record<LLMProvider, CliUpdater>> = {
     args: ['upgrade'],
     npmPackage: 'opencode-ai',
   },
+  agy: {
+    resolveCommand: () => '/home/yubs/.local/bin/agy',
+    args: ['update'],
+    npmPackage: null,
+  },
 };
 
 /** Why the settings page offers no update: the CLI ships with CloudCLI, or the hosting platform manages the CLIs. */
@@ -181,6 +186,7 @@ function getProviderLabel(provider: LLMProvider): string {
     codex: 'Codex',
     cursor: 'Cursor CLI',
     opencode: 'OpenCode',
+    agy: 'Antigravity',
   };
   return labels[provider];
 }

@@ -22,7 +22,9 @@ import { createAgentRouter } from './agent.routes.js';
 type AgentExternalDependencies = Pick<
   Parameters<typeof createAgentRouter>[0],
   'queryClaude' | 'queryCursor' | 'queryCodex' | 'queryOpenCode'
->;
+> & {
+  queryAgy?: (command: string, options: any, writer: any) => Promise<unknown>;
+};
 
 /**
  * Assembles the production Agent router while accepting provider runners from
