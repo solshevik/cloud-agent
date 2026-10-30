@@ -55,6 +55,11 @@ import browserUseMcpRoutes from './modules/browser-use/browser-use-mcp.routes.js
 import { browserUseService } from './modules/browser-use/browser-use.service.js';
 import { initializeDatabase, sessionsDb } from './modules/database/index.js';
 import { configureWebPush } from './modules/notifications/index.js';
+import {
+    gatewayAdminRoutes,
+    gatewayRoutes,
+    geminiGatewayRoutes,
+} from './modules/gateway/index.js';
 
 const __dirname = getModuleDirectory(import.meta.url);
 // The server source runs from /server, while the compiled output runs from /dist-server/server.
@@ -204,6 +209,12 @@ app.use('/api/scheduled-messages', authenticateToken, scheduledMessagesRoutes);
 app.use('/api/agent', agentRoutes);
 
 app.use('/api/voice', authenticateToken, voiceRoutes);
+
+// Multi-Protocol API Gateway (Anthropic / OpenAI / Gemini protocol conversion)
+app.use('/v1', gatewayRoutes);
+app.use('/api/v1', gatewayRoutes);
+app.use('/v1beta', geminiGatewayRoutes);
+app.use('/api/gateway', authenticateToken, gatewayAdminRoutes);
 
 // Serve public files (like api-docs.html)
 app.use(express.static(path.join(APP_ROOT, 'public')));
