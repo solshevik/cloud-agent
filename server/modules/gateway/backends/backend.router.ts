@@ -1,6 +1,7 @@
 import type { GatewayBackend, UnifiedChatRequest, UnifiedChatResponse, UnifiedChunk } from '../types.js';
 import { gatewayConfigService } from '../gateway.config.js';
 
+import { AgyBackend } from './agy.backend.js';
 import { AnthropicBackend } from './anthropic.backend.js';
 import { GeminiBackend } from './gemini.backend.js';
 import { OpenAIBackend } from './openai.backend.js';
@@ -9,6 +10,7 @@ export class BackendRouter {
   private geminiBackend = new GeminiBackend();
   private openaiBackend = new OpenAIBackend();
   private anthropicBackend = new AnthropicBackend();
+  private agyBackend = new AgyBackend();
 
   public resolveBackend(requestedModel: string): { backend: GatewayBackend; targetModel: string } {
     const config = gatewayConfigService.getConfig();
@@ -26,6 +28,9 @@ export class BackendRouter {
       if (this.geminiBackend.isConfigured()) {
         return { backend: this.geminiBackend, targetModel: model };
       }
+      if (this.agyBackend.isConfigured()) {
+        return { backend: this.agyBackend, targetModel: model };
+      }
     }
 
     if (
@@ -37,15 +42,21 @@ export class BackendRouter {
       if (this.openaiBackend.isConfigured()) {
         return { backend: this.openaiBackend, targetModel: model };
       }
+      if (this.agyBackend.isConfigured()) {
+        return { backend: this.agyBackend, targetModel: 'gpt-oss-120b-medium' };
+      }
     }
 
     if (lowerModel.includes('claude')) {
       if (this.anthropicBackend.isConfigured()) {
         return { backend: this.anthropicBackend, targetModel: model };
       }
-      // If Anthropic key is absent, fallback to Gemini or DeepSeek/OpenAI
+      // If Anthropic key is absent, fallback to Gemini, Agy, or DeepSeek/OpenAI
       if (this.geminiBackend.isConfigured()) {
         return { backend: this.geminiBackend, targetModel: 'gemini-2.5-pro' };
+      }
+      if (this.agyBackend.isConfigured()) {
+        return { backend: this.agyBackend, targetModel: 'claude-sonnet-4-6' };
       }
       if (this.openaiBackend.isConfigured()) {
         const target = config.deepseekApiKey ? 'deepseek-chat' : 'gpt-4o';
@@ -57,6 +68,9 @@ export class BackendRouter {
     if (this.geminiBackend.isConfigured()) {
       return { backend: this.geminiBackend, targetModel: 'gemini-2.5-pro' };
     }
+    if (this.agyBackend.isConfigured()) {
+      return { backend: this.agyBackend, targetModel: 'gemini-3.8-flash-high' };
+    }
     if (this.openaiBackend.isConfigured()) {
       const target = config.deepseekApiKey ? 'deepseek-chat' : 'gpt-4o';
       return { backend: this.openaiBackend, targetModel: target };
@@ -66,7 +80,7 @@ export class BackendRouter {
     }
 
     throw new Error(
-      'No upstream backend configured. Please configure GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY in server environment or gateway settings.'
+      'No upstream backend configured. Please configure GEMINI_API_KEY, OPENAI_API_KEY, or ensure agy is installed.'
     );
   }
 

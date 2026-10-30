@@ -12,3 +12,4 @@ export { sessionsService } from './services/sessions.service.js';
 
 export { initializeSessionsWatcher } from './services/sessions-watcher.service.js';
 export { closeSessionsWatcher } from './services/sessions-watcher.service.js';
+export { resolveAgyCommand } from './list/agy/agy-auth.provider.js';
