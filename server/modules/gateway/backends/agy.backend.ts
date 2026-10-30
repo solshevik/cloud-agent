@@ -2,6 +2,7 @@ import crossSpawn from 'cross-spawn';
 
 import type { GatewayBackend, UnifiedChatRequest, UnifiedChatResponse, UnifiedChunk } from '../types.js';
 import { resolveAgyCommand } from '../../providers/index.js';
+import { scrubVendorIdentities } from '../adapters/prompt.scrubber.js';
 
 export class AgyBackend implements GatewayBackend {
   public readonly id = 'agy';
@@ -36,10 +37,13 @@ export class AgyBackend implements GatewayBackend {
     const parts: string[] = [];
 
     if (request.systemPrompt) {
-      parts.push(`[System Instructions]\n${request.systemPrompt}\n`);
+      parts.push(scrubVendorIdentities(request.systemPrompt));
     }
 
     for (const msg of request.messages) {
+      if (msg.role === 'system') {
+        continue;
+      }
       let contentStr = '';
       if (typeof msg.content === 'string') {
         contentStr = msg.content;
@@ -47,25 +51,15 @@ export class AgyBackend implements GatewayBackend {
         contentStr = msg.content
           .map((p) => {
             if (p.type === 'text') return p.text;
-            if (p.type === 'tool_result') return `[Tool Result ${p.toolCallId}]: ${p.content}`;
+            if (p.type === 'tool_result') return `Tool result: ${p.content}`;
             return '';
           })
           .join('\n');
       }
 
-      if (msg.role === 'user') {
-        parts.push(`User: ${contentStr}`);
-      } else if (msg.role === 'assistant') {
-        parts.push(`Assistant: ${contentStr}`);
-      } else if (msg.role === 'system') {
-        parts.push(`System: ${contentStr}`);
+      if (contentStr.trim()) {
+        parts.push(contentStr.trim());
       }
-    }
-
-    // If only one user message, just return that message to keep the prompt clean and direct
-    if (request.messages.length === 1 && request.messages[0].role === 'user' && !request.systemPrompt) {
-      const first = request.messages[0].content;
-      return typeof first === 'string' ? first : parts.join('\n\n');
     }
 
     return parts.join('\n\n');
@@ -84,6 +78,7 @@ export class AgyBackend implements GatewayBackend {
       '--model', model,
       '--output-format', 'stream-json',
       '--dangerously-skip-permissions',
+      '--disable-slash-commands',
     ];
 
     return new Promise((resolve, reject) => {

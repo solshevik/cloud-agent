@@ -5,6 +5,7 @@ import { AnthropicAdapter } from '../adapters/anthropic.adapter.js';
 import { GeminiAdapter } from '../adapters/gemini.adapter.js';
 import { OpenAIAdapter } from '../adapters/openai.adapter.js';
 import { sanitizeJsonSchema, stripCacheControl } from '../adapters/schema.cleaner.js';
+import { scrubVendorIdentities } from '../adapters/prompt.scrubber.js';
 import { BackendRouter } from '../backends/backend.router.js';
 
 test('schema.cleaner: sanitizeJsonSchema removes $schema, definitions and ensures valid object schema', () => {
@@ -298,4 +299,36 @@ test('BackendRouter: listAvailableModels and provider prefix routing', () => {
   const resolvedAgy = router.resolveBackend('agy/gemini-3.8-flash-high');
   assert.equal(resolvedAgy.backend.id, 'agy');
   assert.equal(resolvedAgy.targetModel, 'gemini-3.8-flash-high');
+});
+
+test('prompt.scrubber: scrubVendorIdentities cleans Claude Code and Anthropic brand identity', () => {
+  const dirtyPrompt = "You are Claude Code, Anthropic's official CLI for software development. You are Claude, created by Anthropic.";
+  const cleanPrompt = scrubVendorIdentities(dirtyPrompt);
+
+  assert.ok(!cleanPrompt.includes('Claude Code'));
+  assert.ok(!cleanPrompt.includes('created by Anthropic'));
+  assert.ok(cleanPrompt.includes('AI software engineering assistant'));
+});
+
+test('GeminiAdapter: extracts system messages from messages list into systemInstruction and keeps contents clean', () => {
+  const req = {
+    model: 'gemini-2.5-pro',
+    messages: [
+      { role: 'system' as const, content: 'You are Claude Code, Anthropic official CLI.' },
+      { role: 'user' as const, content: 'Hello' },
+      { role: 'assistant' as const, content: 'Hi' },
+    ],
+  };
+
+  const payload = GeminiAdapter.toGeminiPayload(req);
+
+  // systemInstruction should exist and be cleaned
+  assert.ok(payload.systemInstruction);
+  assert.ok(payload.systemInstruction.parts[0].text.includes('AI software engineering assistant'));
+  assert.ok(!payload.systemInstruction.parts[0].text.includes('Claude Code'));
+
+  // contents should only have user and model, NO system messages
+  assert.equal(payload.contents.length, 2);
+  assert.equal(payload.contents[0].role, 'user');
+  assert.equal(payload.contents[1].role, 'model');
 });

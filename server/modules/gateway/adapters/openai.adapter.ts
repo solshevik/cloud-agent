@@ -10,6 +10,7 @@ import type {
 } from '../types.js';
 
 import { sanitizeJsonSchema, stripCacheControl } from './schema.cleaner.js';
+import { scrubVendorIdentities } from './prompt.scrubber.js';
 
 export interface OpenAIMessageRaw {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -136,6 +137,10 @@ export class OpenAIAdapter {
     }));
 
     const stopSequences = typeof body.stop === 'string' ? [body.stop] : body.stop;
+
+    if (systemPrompt) {
+      systemPrompt = scrubVendorIdentities(systemPrompt);
+    }
 
     return {
       model: body.model,

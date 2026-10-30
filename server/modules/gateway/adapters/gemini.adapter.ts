@@ -7,6 +7,7 @@ import type {
 } from '../types.js';
 
 import { sanitizeJsonSchema } from './schema.cleaner.js';
+import { scrubVendorIdentities } from './prompt.scrubber.js';
 
 export interface GeminiPart {
   text?: string;
@@ -59,17 +60,36 @@ export class GeminiAdapter {
   public static toGeminiPayload(req: UnifiedChatRequest): GeminiRequestPayload {
     const contents: GeminiContent[] = [];
 
-    // Map system prompt
-    let systemInstruction: { parts: Array<{ text: string }> } | undefined;
+    // Extract system prompt and any system-role messages into systemInstruction
+    const systemParts: Array<{ text: string }> = [];
     if (req.systemPrompt) {
-      systemInstruction = {
-        parts: [{ text: req.systemPrompt }],
-      };
+      systemParts.push({ text: scrubVendorIdentities(req.systemPrompt) });
+    }
+
+    const nonSystemMessages: UnifiedMessage[] = [];
+    for (const msg of req.messages) {
+      if (msg.role === 'system') {
+        const text = typeof msg.content === 'string'
+          ? msg.content
+          : Array.isArray(msg.content)
+            ? msg.content.filter((p) => p.type === 'text').map((p: any) => p.text).join('\n')
+            : '';
+        if (text.trim()) {
+          systemParts.push({ text: scrubVendorIdentities(text.trim()) });
+        }
+      } else {
+        nonSystemMessages.push(msg);
+      }
+    }
+
+    let systemInstruction: { parts: Array<{ text: string }> } | undefined;
+    if (systemParts.length > 0) {
+      systemInstruction = { parts: systemParts };
     }
 
     // Build a map of tool call IDs to tool names to accurately resolve tool_result in Gemini
     const toolIdToNameMap = new Map<string, string>();
-    for (const msg of req.messages) {
+    for (const msg of nonSystemMessages) {
       if (Array.isArray(msg.content)) {
         for (const part of msg.content) {
           if (part.type === 'tool_call') {
@@ -79,8 +99,8 @@ export class GeminiAdapter {
       }
     }
 
-    // Map messages
-    for (const msg of req.messages) {
+    // Map only conversation turns (user & model) into contents
+    for (const msg of nonSystemMessages) {
       const role = msg.role === 'assistant' ? 'model' : 'user';
       const parts: GeminiPart[] = [];
 
