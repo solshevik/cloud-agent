@@ -9,6 +9,8 @@ import type {
   UnifiedTool,
 } from '../types.js';
 
+import { sanitizeJsonSchema, stripCacheControl } from './schema.cleaner.js';
+
 export interface AnthropicContentPart {
   type: 'text' | 'image' | 'tool_use' | 'tool_result';
   text?: string;
@@ -49,7 +51,9 @@ export class AnthropicAdapter {
   /**
    * Parse an incoming Anthropic /v1/messages request body into UnifiedChatRequest.
    */
-  public static parseRequest(body: AnthropicRawRequest): UnifiedChatRequest {
+  public static parseRequest(rawBody: AnthropicRawRequest): UnifiedChatRequest {
+    const body = stripCacheControl(rawBody);
+
     let systemPrompt: string | undefined;
     if (typeof body.system === 'string') {
       systemPrompt = body.system;
@@ -113,8 +117,14 @@ export class AnthropicAdapter {
     const tools: UnifiedTool[] | undefined = body.tools?.map((t) => ({
       name: t.name,
       description: t.description,
-      parameters: t.input_schema || {},
+      parameters: sanitizeJsonSchema(t.input_schema || {}),
     }));
+
+    let thinkingBudget: number | undefined;
+    const rawThinking = (rawBody as any).thinking;
+    if (rawThinking?.type === 'enabled' && typeof rawThinking.budget_tokens === 'number') {
+      thinkingBudget = rawThinking.budget_tokens;
+    }
 
     return {
       model: body.model,
@@ -125,6 +135,7 @@ export class AnthropicAdapter {
       maxTokens: body.max_tokens,
       tools,
       stopSequences: body.stop_sequences,
+      thinkingBudget,
       rawBody: body as unknown as Record<string, unknown>,
     };
   }
@@ -191,6 +202,7 @@ export class AnthropicAdapter {
     let textBlockStarted = false;
     let thinkingBlockStarted = false;
     let activeToolIndex: number | null = null;
+    let activeToolId: string | null = null;
     let totalOutputTokens = 0;
 
     const sendEvent = (event: string, data: Record<string, unknown>) => {
@@ -279,8 +291,18 @@ export class AnthropicAdapter {
           }
 
           for (const tc of chunk.toolCalls) {
+            if (activeToolIndex !== null && activeToolId !== tc.id && tc.name) {
+              sendEvent('content_block_stop', {
+                type: 'content_block_stop',
+                index: activeToolIndex,
+              });
+              activeToolIndex = null;
+              activeToolId = null;
+            }
+
             if (activeToolIndex === null) {
               activeToolIndex = blockIndex++;
+              activeToolId = tc.id;
               sendEvent('content_block_start', {
                 type: 'content_block_start',
                 index: activeToolIndex,
@@ -331,6 +353,8 @@ export class AnthropicAdapter {
             type: 'content_block_stop',
             index: activeToolIndex,
           });
+          activeToolIndex = null;
+          activeToolId = null;
         }
 
         let stopReason = 'end_turn';

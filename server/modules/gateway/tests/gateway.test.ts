@@ -4,9 +4,59 @@ import test from 'node:test';
 import { AnthropicAdapter } from '../adapters/anthropic.adapter.js';
 import { GeminiAdapter } from '../adapters/gemini.adapter.js';
 import { OpenAIAdapter } from '../adapters/openai.adapter.js';
+import { sanitizeJsonSchema, stripCacheControl } from '../adapters/schema.cleaner.js';
 import { BackendRouter } from '../backends/backend.router.js';
 
-test('AnthropicAdapter: parseRequest converts Anthropic message request to UnifiedChatRequest', () => {
+test('schema.cleaner: sanitizeJsonSchema removes $schema, definitions and ensures valid object schema', () => {
+  const dirtySchema = {
+    $schema: 'http://json-schema.org/draft-07/schema#',
+    title: 'BashTool',
+    type: 'object',
+    properties: {
+      command: {
+        type: 'string',
+        description: 'The bash command to run',
+        $id: '#command',
+      },
+    },
+    required: ['command'],
+    additionalProperties: false,
+  };
+
+  const clean = sanitizeJsonSchema(dirtySchema);
+  assert.equal(clean['$schema'], undefined);
+  assert.equal(clean['title'], undefined);
+  assert.equal(clean.type, 'object');
+  assert.ok(clean.properties);
+  const props = clean.properties as Record<string, any>;
+  assert.equal(props.command.type, 'string');
+  assert.equal(props.command['$id'], undefined);
+});
+
+test('schema.cleaner: stripCacheControl recursively deletes cache_control fields', () => {
+  const payload = {
+    system: [{ type: 'text', text: 'Prompt', cache_control: { type: 'ephemeral' } }],
+    messages: [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Hi', cache_control: { type: 'ephemeral' } }],
+      },
+    ],
+    tools: [
+      {
+        name: 'test',
+        cache_control: { type: 'ephemeral' },
+      },
+    ],
+  };
+
+  const cleaned = stripCacheControl(payload) as any;
+  assert.equal(cleaned.system[0].cache_control, undefined);
+  assert.equal(cleaned.messages[0].content[0].cache_control, undefined);
+  assert.equal(cleaned.tools[0].cache_control, undefined);
+});
+
+test('AnthropicAdapter: parseRequest converts Anthropic message request and strips cache_control', () => {
   const raw = {
     model: 'claude-3-7-sonnet-20250219',
     system: 'You are an AI assistant',
@@ -22,7 +72,12 @@ test('AnthropicAdapter: parseRequest converts Anthropic message request to Unifi
       {
         role: 'user' as const,
         content: [
-          { type: 'tool_result' as const, tool_use_id: 'call_1', content: 'file.txt' },
+          {
+            type: 'tool_result' as const,
+            tool_use_id: 'call_1',
+            content: 'file.txt',
+            cache_control: { type: 'ephemeral' },
+          },
         ],
       },
     ],
@@ -30,19 +85,30 @@ test('AnthropicAdapter: parseRequest converts Anthropic message request to Unifi
       {
         name: 'bash',
         description: 'Execute command',
-        input_schema: { type: 'object', properties: { command: { type: 'string' } } },
+        input_schema: {
+          $schema: 'http://json-schema.org/draft-07/schema#',
+          type: 'object',
+          properties: { command: { type: 'string' } },
+        },
       },
     ],
+    thinking: {
+      type: 'enabled',
+      budget_tokens: 2048,
+    },
     stream: true,
   };
 
-  const unified = AnthropicAdapter.parseRequest(raw);
+  const unified = AnthropicAdapter.parseRequest(raw as any);
   assert.equal(unified.model, 'claude-3-7-sonnet-20250219');
   assert.equal(unified.systemPrompt, 'You are an AI assistant');
   assert.equal(unified.stream, true);
+  assert.equal(unified.thinkingBudget, 2048);
   assert.equal(unified.messages.length, 3);
   assert.equal(unified.tools?.length, 1);
   assert.equal(unified.tools?.[0].name, 'bash');
+  const toolParams = unified.tools?.[0].parameters as Record<string, any>;
+  assert.equal(toolParams?.['$schema'], undefined);
 
   // Check tool_result mapping
   const lastMsg = unified.messages[2];
@@ -130,30 +196,62 @@ test('OpenAIAdapter: formatResponse formats OpenAI completion JSON', () => {
   assert.equal(formatted.choices[0].finish_reason, 'stop');
 });
 
-test('GeminiAdapter: toGeminiPayload maps unified request to Google Gemini REST schema', () => {
+test('GeminiAdapter: toGeminiPayload maps unified request and correctly resolves functionResponse tool names', () => {
   const unified = {
     model: 'gemini-2.5-pro',
     systemPrompt: 'Be concise',
+    thinkingBudget: 1024,
     messages: [
-      { role: 'user' as const, content: 'What is 2+2?' },
-      { role: 'assistant' as const, content: 'It is 4' },
-      { role: 'user' as const, content: 'Thanks' },
+      { role: 'user' as const, content: 'Run command' },
+      {
+        role: 'assistant' as const,
+        content: [
+          {
+            type: 'tool_call' as const,
+            id: 'call_unique_42',
+            name: 'execute_command',
+            arguments: { cmd: 'pwd' },
+          },
+        ],
+      },
+      {
+        role: 'user' as const,
+        content: [
+          {
+            type: 'tool_result' as const,
+            toolCallId: 'call_unique_42',
+            content: '/home/user/project',
+          },
+        ],
+      },
     ],
     tools: [
       {
-        name: 'calc',
-        description: 'Calculator',
-        parameters: { type: 'object', properties: { expr: { type: 'string' } } },
+        name: 'execute_command',
+        description: 'Execute command',
+        parameters: { $schema: 'strict', type: 'object', properties: { cmd: { type: 'string' } } },
       },
     ],
   };
 
   const geminiPayload = GeminiAdapter.toGeminiPayload(unified);
   assert.equal(geminiPayload.systemInstruction?.parts[0].text, 'Be concise');
+  assert.equal(geminiPayload.generationConfig?.thinkingConfig?.thinkingBudget, 1024);
   assert.equal(geminiPayload.contents.length, 3);
-  assert.equal(geminiPayload.contents[0].role, 'user');
-  assert.equal(geminiPayload.contents[1].role, 'model');
-  assert.equal(geminiPayload.tools?.[0].functionDeclarations[0].name, 'calc');
+
+  // Assistant turn has functionCall
+  const assistantPart = geminiPayload.contents[1].parts[0];
+  assert.ok(assistantPart.functionCall);
+  assert.equal(assistantPart.functionCall.name, 'execute_command');
+
+  // User turn has functionResponse with the RESOLVED tool name
+  const toolResponsePart = geminiPayload.contents[2].parts[0];
+  assert.ok(toolResponsePart.functionResponse);
+  assert.equal(toolResponsePart.functionResponse.name, 'execute_command');
+  assert.deepEqual(toolResponsePart.functionResponse.response, { output: '/home/user/project' });
+
+  // Tool parameter schema should not contain $schema
+  assert.equal(geminiPayload.tools?.[0].functionDeclarations[0].parameters?.['$schema'], undefined);
 });
 
 test('GeminiAdapter: parseGeminiChunk parses text, thinking and functionCall', () => {
@@ -182,10 +280,11 @@ test('GeminiAdapter: parseGeminiChunk parses text, thinking and functionCall', (
   assert.equal(parsed.text, 'Final Answer');
   assert.equal(parsed.toolCalls?.length, 1);
   assert.equal(parsed.toolCalls?.[0].name, 'search');
+  assert.equal(parsed.finishReason, 'tool_calls');
   assert.equal(parsed.usage?.totalTokens, 35);
 });
 
-test('BackendRouter: listAvailableModels contains Gemini, Claude, OpenAI, and Antigravity models', () => {
+test('BackendRouter: listAvailableModels and provider prefix routing', () => {
   const router = new BackendRouter();
   const models = router.listAvailableModels();
   const ids = models.map((m) => m.id);
@@ -194,4 +293,9 @@ test('BackendRouter: listAvailableModels contains Gemini, Claude, OpenAI, and An
   assert.ok(ids.includes('claude-3-5-sonnet-20241022'));
   assert.ok(ids.includes('gemini-3.8-flash-high'));
   assert.ok(ids.includes('claude-sonnet-4-6'));
+
+  // Test provider prefix routing: agy/gemini-3.8-flash-high
+  const resolvedAgy = router.resolveBackend('agy/gemini-3.8-flash-high');
+  assert.equal(resolvedAgy.backend.id, 'agy');
+  assert.equal(resolvedAgy.targetModel, 'gemini-3.8-flash-high');
 });

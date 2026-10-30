@@ -9,6 +9,8 @@ import type {
   UnifiedTool,
 } from '../types.js';
 
+import { sanitizeJsonSchema, stripCacheControl } from './schema.cleaner.js';
+
 export interface OpenAIMessageRaw {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content?: string | Array<{
@@ -49,7 +51,8 @@ export class OpenAIAdapter {
   /**
    * Parse an incoming OpenAI /v1/chat/completions request into UnifiedChatRequest.
    */
-  public static parseRequest(body: OpenAIChatRequestRaw): UnifiedChatRequest {
+  public static parseRequest(rawBody: OpenAIChatRequestRaw): UnifiedChatRequest {
+    const body = stripCacheControl(rawBody);
     let systemPrompt: string | undefined;
     const messages: UnifiedMessage[] = [];
 
@@ -129,7 +132,7 @@ export class OpenAIAdapter {
     const tools: UnifiedTool[] | undefined = body.tools?.map((t) => ({
       name: t.function.name,
       description: t.function.description,
-      parameters: t.function.parameters || {},
+      parameters: sanitizeJsonSchema(t.function.parameters || {}),
     }));
 
     const stopSequences = typeof body.stop === 'string' ? [body.stop] : body.stop;

@@ -54,6 +54,7 @@ export interface UnifiedChatRequest {
   maxTokens?: number;
   tools?: UnifiedTool[];
   stopSequences?: string[];
+  thinkingBudget?: number;
   rawBody?: Record<string, unknown>;
 }
 

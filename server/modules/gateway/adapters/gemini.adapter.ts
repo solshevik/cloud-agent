@@ -6,6 +6,8 @@ import type {
   UnifiedTool,
 } from '../types.js';
 
+import { sanitizeJsonSchema } from './schema.cleaner.js';
+
 export interface GeminiPart {
   text?: string;
   thought?: boolean;
@@ -44,6 +46,9 @@ export interface GeminiRequestPayload {
     temperature?: number;
     maxOutputTokens?: number;
     stopSequences?: string[];
+    thinkingConfig?: {
+      thinkingBudget?: number;
+    };
   };
 }
 
@@ -60,6 +65,18 @@ export class GeminiAdapter {
       systemInstruction = {
         parts: [{ text: req.systemPrompt }],
       };
+    }
+
+    // Build a map of tool call IDs to tool names to accurately resolve tool_result in Gemini
+    const toolIdToNameMap = new Map<string, string>();
+    for (const msg of req.messages) {
+      if (Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          if (part.type === 'tool_call') {
+            toolIdToNameMap.set(part.id, part.name);
+          }
+        }
+      }
     }
 
     // Map messages
@@ -93,15 +110,21 @@ export class GeminiAdapter {
               },
             });
           } else if (part.type === 'tool_result') {
+            const toolName = part.name || toolIdToNameMap.get(part.toolCallId) || req.tools?.[0]?.name || 'tool_response';
             let resContent: Record<string, unknown>;
-            try {
-              resContent = typeof part.content === 'string' ? JSON.parse(part.content) : part.content;
-            } catch {
-              resContent = { result: part.content };
+            if (typeof part.content === 'object' && part.content !== null) {
+              resContent = part.content as Record<string, unknown>;
+            } else {
+              try {
+                const parsed = JSON.parse(part.content);
+                resContent = typeof parsed === 'object' && parsed !== null ? parsed : { output: part.content };
+              } catch {
+                resContent = { output: part.content };
+              }
             }
             parts.push({
               functionResponse: {
-                name: part.name || 'tool_response',
+                name: toolName,
                 response: resContent,
               },
             });
@@ -120,7 +143,7 @@ export class GeminiAdapter {
       }
     }
 
-    // Map tools
+    // Map tools with sanitized JSON schema
     let tools: GeminiRequestPayload['tools'];
     if (req.tools && req.tools.length > 0) {
       tools = [
@@ -128,21 +151,29 @@ export class GeminiAdapter {
           functionDeclarations: req.tools.map((t) => ({
             name: t.name,
             description: t.description,
-            parameters: t.parameters,
+            parameters: sanitizeJsonSchema(t.parameters),
           })),
         },
       ];
+    }
+
+    const generationConfig: Record<string, unknown> = {
+      temperature: req.temperature,
+      maxOutputTokens: req.maxTokens,
+      stopSequences: req.stopSequences,
+    };
+
+    if (req.thinkingBudget) {
+      generationConfig.thinkingConfig = {
+        thinkingBudget: req.thinkingBudget,
+      };
     }
 
     return {
       contents,
       systemInstruction,
       tools,
-      generationConfig: {
-        temperature: req.temperature,
-        maxOutputTokens: req.maxTokens,
-        stopSequences: req.stopSequences,
-      },
+      generationConfig,
     };
   }
 
@@ -171,6 +202,7 @@ export class GeminiAdapter {
             name: part.functionCall.name,
             argumentsJson: JSON.stringify(part.functionCall.args || {}),
           });
+          chunk.finishReason = 'tool_calls';
         }
       }
     }

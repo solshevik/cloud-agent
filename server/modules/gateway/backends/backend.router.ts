@@ -21,9 +21,37 @@ export class BackendRouter {
       model = config.modelAliases[model];
     }
 
+    // 2. Support explicit provider prefix (e.g. "gemini/gemini-2.5-pro", "deepseek/deepseek-chat")
+    if (model.includes('/')) {
+      const [providerPrefix, ...rest] = model.split('/');
+      const strippedModel = rest.join('/');
+      const p = providerPrefix.toLowerCase();
+
+      if (p === 'gemini' || p === 'google') {
+        if (this.geminiBackend.isConfigured()) {
+          return { backend: this.geminiBackend, targetModel: strippedModel };
+        }
+        if (this.agyBackend.isConfigured()) {
+          return { backend: this.agyBackend, targetModel: strippedModel };
+        }
+      } else if (p === 'deepseek' || p === 'openai') {
+        if (this.openaiBackend.isConfigured()) {
+          return { backend: this.openaiBackend, targetModel: strippedModel };
+        }
+      } else if (p === 'anthropic' || p === 'claude') {
+        if (this.anthropicBackend.isConfigured()) {
+          return { backend: this.anthropicBackend, targetModel: strippedModel };
+        }
+      } else if (p === 'agy' || p === 'antigravity') {
+        if (this.agyBackend.isConfigured()) {
+          return { backend: this.agyBackend, targetModel: strippedModel };
+        }
+      }
+    }
+
     const lowerModel = model.toLowerCase();
 
-    // 2. Direct match by model prefix if backend configured
+    // 3. Direct match by model prefix if backend configured
     if (lowerModel.includes('gemini') || lowerModel.includes('gemma')) {
       if (this.geminiBackend.isConfigured()) {
         return { backend: this.geminiBackend, targetModel: model };
