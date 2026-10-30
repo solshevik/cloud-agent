@@ -1,248 +1,193 @@
 <div align="center">
- <img src="../public/logo.svg" alt="CloudCLI UI" width="64" height="64">
- <h1>Cloud CLI（又名 Claude Code UI）</h1>
- <p><a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a>、<a href="https://docs.cursor.com/en/cli/overview">Cursor CLI</a>、<a href="https://developers.openai.com/codex">Codex</a> 的桌面和移动端 UI。可在本地或远程使用，从任何地方查看激活的项目与会话。</p>
+  <img src="../public/logo.svg" alt="Cloud-Agent" width="64" height="64">
+  <h1>Cloud-Agent</h1>
+  <p><strong>新一代 AI 智能体 Web/移动端 IDE 与 LiteLLM 式多协议大模型 API 网关</strong><br>
+  无缝桥接 <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a>、<a href="https://docs.cursor.com/en/cli/overview">Cursor CLI</a>、<a href="https://developers.openai.com/codex">Codex</a> 与 Google Antigravity (<code>agy</code>)。<br>
+  可在本地或远程使用，随时随地管理活跃项目、持久化会话并统一多协议大模型路由调度。</p>
 </div>
 
 <p align="center">
- <a href="https://cloudcli.ai">CloudCLI Cloud</a> · <a href="https://cloudcli.ai/docs">文档</a> · <a href="https://discord.gg/buxwujPNRE">Discord</a> · <a href="https://github.com/siteboon/claudecodeui/issues">Bug 报告</a> · <a href="../CONTRIBUTING.md">贡献指南</a>
+  <a href="https://github.com/solshevik/cloud-agent">GitHub 仓库</a> · 
+  <a href="./LiteLLM式多协议大模型网关设计与落地方案.md">网关设计方案</a> · 
+  <a href="./API网关与本地agy适配优化深度方案.md">agy 适配与会话深度方案</a> · 
+  <a href="https://github.com/solshevik/cloud-agent/issues">问题反馈</a>
 </p>
 
 <p align="center">
- <a href="https://cloudcli.ai"><img src="https://img.shields.io/badge/☁️_CloudCLI_Cloud-Try_Now-0066FF?style=for-the-badge" alt="CloudCLI Cloud"></a>
- <a href="https://discord.gg/buxwujPNRE"><img src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="加入 Discord 社区"></a>
- <br><br>
- <a href="https://trendshift.io/repositories/15586" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15586" alt="siteboon%2Fclaudecodeui | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+  <a href="https://github.com/solshevik/cloud-agent"><img src="https://img.shields.io/badge/GitHub-Cloud--Agent-0066FF?style=for-the-badge&logo=github&logoColor=white" alt="Cloud-Agent GitHub"></a>
+  <a href="https://github.com/solshevik/cloud-agent/releases"><img src="https://img.shields.io/badge/Release-v1.37.6-brightgreen?style=for-the-badge" alt="Release v1.37.6"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-orange?style=for-the-badge" alt="AGPL-3.0 License"></a>
 </p>
 
-<div align="right"><i><a href="../README.md">English</a> · <a href="./README.ru.md">Русский</a> · <a href="./README.de.md">Deutsch</a> · <a href="./README.ko.md">한국어</a> · <b>简体中文</b> · <a href="./README.zh-TW.md">繁體中文</a> · <a href="./README.ja.md">日本語</a> · <a href="./README.tr.md">Türkçe</a> · <a href="./README.id.md">Bahasa Indonesia</a></i></div>
+<div align="right"><i><a href="../README.md">English</a> · <b>简体中文</b> · <a href="./README.ru.md">Русский</a> · <a href="./README.de.md">Deutsch</a> · <a href="./README.ko.md">한국어</a> · <a href="./README.ja.md">日本語</a></i></div>
 
 ---
 
-## 截图
+## 🌟 核心特性与架构升级
 
-<div align="center">
+**Cloud-Agent** 将全功能响应式 Web/移动端 AI 智能体 IDE 与企业级 **LiteLLM 式多协议 API 网关**完美融为一体。
 
-<table>
-<tr>
-<td align="center">
-<h3>桌面视图</h3>
-<img src="../public/screenshots/desktop-main.png" alt="桌面界面" width="400">
-<br>
-<em>显示项目概览和聊天的主界面</em>
-</td>
-<td align="center">
-<h3>移动体验</h3>
-<img src="../public/screenshots/mobile-chat.png" alt="移动界面" width="250">
-<br>
-<em>具有触控导航的响应式移动设计</em>
-</td>
-</tr>
-<tr>
-<td align="center" colspan="2">
-<h3>CLI 选择</h3>
-<img src="../public/screenshots/cli-selection.png" alt="CLI 选择" width="400">
-<br>
-<em>在 Claude Code、Cursor CLI 与 Codex 之间进行选择</em>
-</td>
-</tr>
-</table>
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   外部客户端与开发者工具体系                           │
+│   Claude Code CLI  │  Cursor IDE  │  OpenAI SDK  │  Web / 移动端 UI    │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │ HTTP / SSE / WebSocket
+                                     ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│               Cloud-Agent 多协议大模型网关 (:3001)                     │
+│                                                                        │
+│  • 统一协议入口:                                                       │
+│    - POST /v1/messages              (Anthropic Messages API 兼容)      │
+│    - POST /v1/chat/completions      (OpenAI Chat Completions API 兼容) │
+│    - POST /v1beta/models/*          (Google Gemini API 兼容)           │
+│    - GET  /v1/models                (统一模型清单注册表)               │
+│                                                                        │
+│  • 智能适配与治理层:                                                   │
+│    - 函数调用转换器                 (Anthropic ↔ OpenAI ↔ Gemini)      │
+│    - 严格 Schema 清洗器             (剥离 $schema、draft-07 冲突定义)  │
+│    - 厂商身份净化器                 (洗净 Claude/OpenAI/Gemini 混淆)   │
+│    - 环境噪声过滤器                 (过滤时间/时区/地理位置/OS 元数据) │
+│    - 客户端脚手架过滤               (剥离 <guidelines>, <tools> 标签)  │
+│    - 会话持续状态机                 (conversation_id 状态树复用)       │
+│    - 防挂起流式生命周期             (finally { res.end(); } 立即终止)  │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │ 智能自愈路由
+        ┌────────────────────────────┼────────────────────────────┐
+        ▼                            ▼                            ▼
+┌─────────────────┐        ┌─────────────────┐        ┌─────────────────┐
+│ Google Gemini   │        │ OpenAI/DeepSeek │        │ 本地 Antigravity│
+│ 原生 REST API   │        │ 兼容大模型 API  │        │ (agy CLI 引擎)  │
+│ (2.5-pro/flash) │        │ (chat/gpt-4o)   │        │ (免 Key 本地运行)│
+└─────────────────┘        └─────────────────┘        └─────────────────┘
+```
 
-</div>
+---
 
-## 功能
+## 🚀 主要功能特色
 
-- **响应式设计** - 在桌面、平板和移动设备上无缝运行，让您随时随地使用 Agents
-- **交互聊天界面** - 内置聊天 UI，轻松与 Agents 交流
-- **集成 Shell 终端** - 通过内置 shell 功能直接访问 Agents CLI
-- **文件浏览器** - 交互式文件树，支持语法高亮与实时编辑
-- **Git 浏览器** - 查看、暂存并提交更改，还可切换分支
-- **会话管理** - 恢复对话、管理多个会话并跟踪历史记录
-- **插件系统** - 通过自定义选项卡、后端服务与集成扩展 CloudCLI。 [开始构建 →](https://github.com/cloudcli-ai/cloudcli-plugin-starter)
-- **TaskMaster AI 集成** *(可选)* - 结合 AI 任务规划、PRD 分析与工作流自动化，实现高级项目管理
-- **模型兼容性** - 支持 Claude、GPT 模型家族（完整支持列表可通过 `GET /api/providers/:provider/models` 接口获取）
+### 1. LiteLLM 式多协议大模型网关
+- **多协议全双工转换**：支持 Anthropic `/v1/messages`、OpenAI `/v1/chat/completions` 与 Gemini `/v1beta/models/*` 协议输入，可自动转换为任意目标模型协议并回传对应标准格式。
+- **智能提供商路由**：支持显式前缀（如 `agy/gemini-3.8-flash-low`、`gemini/gemini-2.5-pro`、`deepseek/deepseek-chat`）及基于可用 API Key 与本地引擎的自愈回退机制。
+- **本地 `agy` 引擎无缝桥接**：在无外部公网 API Key 时，自动调度本地登录的 Antigravity CLI 引擎，零配置即享强大的代码智能能力。
+- **双向 Function Calling 映射**：跨协议精准转换工具定义（Tool Definition）、工具入参（Tool Calls）及执行结果（Tool Results）。
+- **提示词与隐私深度清洗**：自动剔除竞品身份标识，过滤客户端时间、时区（如 `Asia/Tokyo`）、物理地理位置、操作系统版本与私有脚手架标签，100% 完整保留用户正文代码。
+- **会话持续状态机（Session Continuity Manager）**：在网关层维护会话树映射，多轮对话输入 Token 削减 **80% 以上**，实测完美支持 **连续 10 轮以上** 的深度上下文记忆推演。
+- **防挂起平滑流式传输**：彻底解决流式输出完毕时光标挂起等待超时的缺陷，事件流一结束即刻关闭管道。
 
-## 快速开始
+### 2. 全功能 Web / 移动端 AI 智能体 IDE
+- **响应式跨端体验**：专为移动端与平板触摸优化的触控界面，随时随地在手机上使用智能体。
+- **交互式聊天界面**：支持实时 Markdown 流式渲染、代码语法高亮与 Diff 变更审查。
+- **内置 Web Shell 终端**：多标签页 xterm.js 终端，无需离开浏览器即可执行系统命令。
+- **文件与 Git 资源管理器**：集成本地文件树浏览、CodeMirror 实时代码编辑及 Git 分支/暂存/提交全套控制。
+- **多智能体历史自动同步**：自动发现并集中管理 Claude Code、Cursor、Codex 与 Antigravity 的历史会话。
+- **插件系统扩展**：支持自定义功能选项卡、遥测监控与后台自动化任务。
 
-### CloudCLI Cloud（推荐）
+---
 
-无需本地设置即可快速启动。提供可通过网络浏览器、移动应用、API 或喜欢的 IDE 访问的完全集装式托管开发环境。
+## 🛠️ 快速上手
 
-**[立即开始 CloudCLI Cloud](https://cloudcli.ai)**
+### 1. 本地安装与启动
 
-### 自托管（开源）
-
-#### npm
-
-启动 CloudCLI UI，只需一行 `npx`（需要 Node.js v22+）：
+运行环境要求：**Node.js v22+**
 
 ```bash
-npx @cloudcli-ai/cloudcli
+# 克隆代码仓库
+git clone https://github.com/solshevik/cloud-agent.git
+cd cloud-agent
+
+# 安装依赖并构建
+npm install
+npm run build
+
+# 启动服务（默认监听 3001 端口）
+npm run server
 ```
 
-或进行全局安装，便于日常使用：
+在浏览器打开 `http://localhost:3001`，所有本地会话将自动同步并展示。
+
+### 2. 将本地 Claude Code CLI 对接到网关
+
+Cloud-Agent 提供了全局包装器与环境集成，配置后日常直接运行 `claude` 即可无感享用网关路由：
 
 ```bash
-npm install -g @cloudcli-ai/cloudcli
-cloudcli
+# 配置环境变量指向网关
+export ANTHROPIC_BASE_URL="http://127.0.0.1:3001"
+export ANTHROPIC_API_KEY="your-gateway-api-key"
+
+# 启动 Claude Code 执行单轮提问
+claude -p "请用 Rust 实现一个经典的二叉搜索树"
+
+# 继续会话（全上下文连续推演）
+claude -c -p "现在为它编写单元测试"
 ```
 
-打开 `http://localhost:3001`，系统会自动发现所有现有会话。
+### 3. 使用 cURL / SDK 调用网关
 
-更多配置选项、PM2、远程服务器设置等，请参阅 **[文档 →](https://cloudcli.ai/docs)**。
-
-#### Docker Sandboxes（实验性）
-
-在隔离的沙箱中运行代理，具有虚拟机管理程序级别的隔离。默认启动 Claude Code。需要 [`sbx` CLI](https://docs.docker.com/ai/sandboxes/get-started/)。
-
+#### 调用 Anthropic 兼容端点 (`POST /v1/messages`)
+```bash
+curl -N -X POST http://127.0.0.1:3001/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-gateway-api-key" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "agy/gemini-3.8-flash-low",
+    "stream": true,
+    "messages": [
+      { "role": "user", "content": "用 Python 写一个快速排序算法" }
+    ]
+  }'
 ```
-npx @cloudcli-ai/cloudcli@latest sandbox ~/my-project
-```
 
-支持 Claude Code 和 Codex。详情请参阅 [沙箱文档](../docker/)。
+#### 调用 OpenAI 兼容端点 (`POST /v1/chat/completions`)
+```bash
+curl -N -X POST http://127.0.0.1:3001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-gateway-api-key" \
+  -d '{
+    "model": "gemini-2.5-pro",
+    "stream": true,
+    "messages": [
+      { "role": "user", "content": "你好，请介绍一下你的核心能力" }
+    ]
+  }'
+```
 
 ---
 
-## 哪个选项更适合你？
+## 📊 模型路由映射表
 
-CloudCLI UI 是 CloudCLI Cloud 的开源 UI 层。你可以在本地机器上自托管它，也可以使用提供团队功能与深入集成的 CloudCLI Cloud。
-
-| | CloudCLI UI（自托管） | CloudCLI Cloud |
-|---|---|---|
-| **适合对象** | 需要为本地代理会话提供完整 UI 的开发者 | 需要部署在云端，随时从任何地方访问代理的团队与开发者 |
-| **访问方式** | 通过 `[yourip]:port` 在浏览器中访问 | 浏览器、任意 IDE、REST API、n8n |
-| **设置** | `npx @cloudcli-ai/cloudcli` | 无需设置 |
-| **机器需保持开机吗** | 是 | 否 |
-| **移动端访问** | 网络内任意浏览器 | 任意设备（原生应用即将推出） |
-| **可用会话** | 自动发现 `~/.claude` 中的所有会话 | 云端环境内的会话 |
-| **支持的 Agents** | Claude Code、Cursor CLI、Codex | Claude Code、Cursor CLI、Codex |
-| **文件浏览与 Git** | 内置于 UI | 内置于 UI |
-| **MCP 配置** | UI 管理，与本地 `~/.claude` 配置同步 | UI 管理 |
-| **IDE 访问** | 本地 IDE | 任何连接到云环境的 IDE |
-| **REST API** | 是 | 是 |
-| **n8n 节点** | 否 | 是 |
-| **团队共享** | 否 | 是 |
-| **平台费用** | 免费开源 | 起价 €7/月 |
-
-> 两种方式都使用你自己的 AI 订阅（Claude、Cursor 等）— CloudCLI 提供环境，而非 AI。
+| 请求模型前缀 | 实际调用后端 | 映射目标模型 | 特性与优势 |
+| :--- | :--- | :--- | :--- |
+| `agy/gemini-3.8-flash-low` | Antigravity 本地引擎 | `gemini-3.8-flash-low` | 流式极速出字、免 API Key、超低首字延迟 |
+| `agy/gemini-3.8-flash-high` | Antigravity 本地引擎 | `gemini-3.8-flash-high` | 深度推理强化、复杂代码逻辑推导 |
+| `agy/claude-sonnet-4-6` | Antigravity 本地引擎 | `claude-sonnet-4-6` | 原生 Thinking 能力、高质量编程水准 |
+| `gemini/gemini-2.5-pro` | Google Gemini REST | `gemini-2.5-pro` | 原生工具调用、多模态、200 万超大上下文 |
+| `gemini/gemini-2.5-flash` | Google Gemini REST | `gemini-2.5-flash` | 高并发吞吐、低成本实时推理 |
+| `deepseek/deepseek-chat` | OpenAI / DeepSeek | `deepseek-chat` | 极致性价比、优秀的中文与代码推理 |
+| `claude-3-7-sonnet-20250219` | Anthropic / Agy 降级 | 智能解析路由 | 混合降级与自动容灾自愈 |
 
 ---
 
-## 安全与工具配置
+## 📚 详细设计与交付方案文档
 
-**🔒 重要提示**: 所有 Claude Code 工具默认**禁用**，可防止潜在的有害操作自动运行。
+完整的技术设计与实操排查文档位于 `docs/` 目录下：
 
-### 启用工具
+1. [LiteLLM式多协议大模型网关设计与落地方案.md](./LiteLLM式多协议大模型网关设计与落地方案.md)
+   - 网关分层架构设计、统一中间数据结构（UnifiedChatRequest）与多协议转换引擎。
+2. [网关实操问题排查与优化解决方案.md](./网关实操问题排查与优化解决方案.md)
+   - 厂商标识过滤、Function Calling Schema 清洗及端到端耗时归因分析。
+3. [API网关与本地agy适配优化深度方案.md](./API网关与本地agy适配优化深度方案.md)
+   - agy 核心参数平衡点、环境元数据清洗、SSE 流式挂起修复、“1 Token 无内容”深度排查及**连续 10 轮上下文对话实测记录**。
 
-1. **打开工具设置** - 点击侧边栏齿轮图标
-2. **选择性启用** - 仅启用所需工具
-3. **应用设置** - 偏好设置保存在本地
+---
+
+## 🤝 社区与贡献
+
+- **代码仓库**：[https://github.com/solshevik/cloud-agent](https://github.com/solshevik/cloud-agent)
+- **问题反馈**：[https://github.com/solshevik/cloud-agent/issues](https://github.com/solshevik/cloud-agent/issues)
+- **开源协议**：GNU Affero General Public License v3.0 or later ([AGPL-3.0-or-later](../LICENSE))
 
 <div align="center">
-
-![工具设置弹窗](../public/screenshots/tools-modal.png)
-*工具设置界面 - 只启用你需要的内容*
-
-</div>
-
-**推荐做法**: 先启用基础工具，再根据需要添加其他工具。随时可以调整。
-
----
-
-## 插件
-
-CloudCLI 配备插件系统，允许你添加带自定义前端 UI 和可选 Node.js 后端的选项卡。在 Settings > Plugins 中直接从 Git 仓库安装插件，或自行开发。
-
-### 可用插件
-
-| 插件 | 描述 |
-|---|---|
-| **[Project Stats](https://github.com/cloudcli-ai/cloudcli-plugin-starter)** | 展示当前项目的文件数、代码行数、文件类型分布、最大文件以及最近修改的文件 |
-| **[Web Terminal](https://github.com/cloudcli-ai/cloudcli-plugin-terminal)** | 支持多标签页的完整 xterm.js 终端 |
-| **[CloudCLI Scheduler](https://github.com/grostim/cloudcli-cron)** | 创建工作区范围的定时提示词，并通过 Codex、Claude Code 等本地 CLI 执行 |
-| **[PRISM CloudCLI](https://github.com/jakeefr/cloudcli-plugin-prism)** | 在 CloudCLI 中提供 Claude Code 会话智能分析，包括 token 消耗可视化 |
-| **[Sessions](https://github.com/strykereye2/cloudcli-plugin-session-manager)** | 查看、管理并终止活动的 Claude Code 会话 |
-| **[Token Cost Calculator](https://github.com/NightmareAway/cloudcli-plugin-token-cost-calculator)** | 根据模型价格和 token 用量计算 API 成本，并支持模型价格预设 |
-| **[Task Queue](https://github.com/TadMSTR/cloudcli-plugin-task-queue)** | 用于查看、筛选和启动代理任务的任务队列仪表板 |
-| **[GitHub Issues Board](https://github.com/szmidtpiotr/claude-github-issue)** | 用于 GitHub Issues 的看板，支持 TaskMaster 双向同步和 /github-task CLI 技能自动安装 |
-
-### 自行构建
-
-**[Plugin Starter Template →](https://github.com/cloudcli-ai/cloudcli-plugin-starter)** — Fork 该仓库以构建自己的插件。示例包括前端渲染、实时上下文更新和 RPC 通信。
-
-**[插件文档 →](https://cloudcli.ai/docs/plugin-overview)** — 提供插件 API、清单格式、安全模型等完整指南。
-
----
-
-## 常见问题
-
-<details>
-<summary>与 Claude Code Remote Control 有何不同？</summary>
-
-Claude Code Remote Control 让你发送消息到本地终端中已经运行的会话。该方式要求你的机器保持开机，终端保持开启，断开网络后约 10 分钟会话会超时。
-
-CloudCLI UI 与 CloudCLI Cloud 是对 Claude Code 的扩展，而非旁观 — MCP 服务器、权限、设置、会话与 Claude Code 完全一致。
-
-- **覆盖全部会话** — CloudCLI UI 会自动扫描 `~/.claude` 文件夹中的每个会话。Remote Control 只暴露当前活动的会话。
-- **设置统一** — 在 CloudCLI UI 中修改的 MCP、工具权限等设置会立即写入 Claude Code。
-- **支持更多 Agents** — Claude Code、Cursor CLI、Codex。
-- **完整 UI** — 除了聊天界面，还包括文件浏览器、Git 集成、MCP 管理和 Shell 终端。
-- **CloudCLI Cloud 保持运行于云端** — 关闭本地设备也不会中断代理运行，无需监控终端。
-
-</details>
-
-<details>
-<summary>需要额外购买 AI 订阅吗？</summary>
-
-需要。CloudCLI 只提供环境。你仍需自行获取 Claude、Cursor 或 Codex 订阅。CloudCLI Cloud 从 €7/月起提供托管环境。
-
-</details>
-
-<details>
-<summary>能在手机上使用 CloudCLI UI 吗？</summary>
-
-可以。自托管时，在你的设备上运行服务器，然后在网络中的任意浏览器打开 `[yourip]:port`。CloudCLI Cloud 可从任意设备访问，内置原生应用也在开发中。
-
-</details>
-
-<details>
-<summary>UI 中的更改会影响本地 Claude Code 配置吗？</summary>
-
-会的。自托管模式下，CloudCLI UI 读取并写入 Claude Code 使用的 `~/.claude` 配置。通过 UI 添加的 MCP 服务器会立即在 Claude Code 中可见。
-
-</details>
-
----
-
-## 社区与支持
-
-- **[文档](https://cloudcli.ai/docs)** — 安装、配置、功能与故障排除指南
-- **[Discord](https://discord.gg/buxwujPNRE)** — 获取帮助并与社区交流
-- **[GitHub Issues](https://github.com/siteboon/claudecodeui/issues)** — 报告 Bug 与建议功能
-- **[贡献指南](../CONTRIBUTING.md)** — 如何参与项目贡献
-
-## 许可证
-
-GNU Affero 通用公共许可证 v3.0 或更高版本 (AGPL-3.0-or-later) - 详见 [LICENSE](../LICENSE) 文件。
-
-该项目为开源软件，在 GNU Affero 通用公共许可证 v3.0 或更高版本 (AGPL-3.0-or-later) 下可自由使用、修改与分发。
-
-## 致谢
-
-### 使用技术
-- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** - Anthropic 官方 CLI
-- **[Cursor CLI](https://docs.cursor.com/en/cli/overview)** - Cursor 官方 CLI
-- **[Codex](https://developers.openai.com/codex)** - OpenAI Codex
-- **[React](https://react.dev/)** - 用户界面库
-- **[Vite](https://vitejs.dev/)** - 快速构建工具与开发服务器
-- **[Tailwind CSS](https://tailwindcss.com/)** - 实用先行 CSS 框架
-- **[CodeMirror](https://codemirror.net/)** - 高级代码编辑器
-- **[TaskMaster AI](https://github.com/eyaltoledano/claude-task-master)** *(可选)* - AI 驱动的项目管理与任务规划
-
-### 赞助商
-- [Siteboon - AI powered website builder](https://siteboon.ai)
----
-
-<div align="center">
- <strong>为 Claude Code、Cursor 和 Codex 社区精心打造。</strong>
+  <sub>精心为 AI 智能体社区打造。全力支持 Claude Code、Cursor、Codex 与 Antigravity。</sub>
 </div>

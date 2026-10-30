@@ -1,8 +1,8 @@
 {
   "name": "@cloudcli-ai/cloudcli",
   "version": "1.37.6",
-  "productName": "CloudCLI",
-  "description": "A web-based UI for Claude Code CLI",
+  "productName": "Cloud-Agent",
+  "description": "A web & mobile AI agent IDE and multi-protocol gateway supporting Claude Code, Cursor CLI, Codex, and Antigravity (agy)",
   "type": "module",
   "main": "dist-server/server/index.js",
   "bin": {
@@ -21,10 +21,10 @@
   "homepage": "https://cloudcli.ai",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/siteboon/claudecodeui.git"
+    "url": "git+https://github.com/solshevik/cloud-agent.git"
   },
   "bugs": {
-    "url": "https://github.com/siteboon/claudecodeui/issues"
+    "url": "https://github.com/solshevik/cloud-agent/issues"
   },
   "scripts": {
     "dev": "concurrently --kill-others \"npm run server:dev\" \"npm run client\"",

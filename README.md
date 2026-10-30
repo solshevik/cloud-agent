@@ -1,277 +1,201 @@
 <div align="center">
- <img src="public/logo.svg" alt="CloudCLI UI" width="64" height="64">
- <h1>Cloud CLI (aka Claude Code UI)</h1>
- <p>A desktop and mobile UI for <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a>, <a href="https://docs.cursor.com/en/cli/overview">Cursor CLI</a>, and <a href="https://developers.openai.com/codex">Codex</a>.<br>Use it locally or remotely to view your active projects and sessions from everywhere.</p>
+  <img src="public/logo.svg" alt="Cloud-Agent" width="64" height="64">
+  <h1>Cloud-Agent</h1>
+  <p><strong>Next-Generation AI Agent Web & Mobile IDE and Multi-Protocol LLM API Gateway</strong><br>
+  Seamlessly bridges <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a>, <a href="https://docs.cursor.com/en/cli/overview">Cursor CLI</a>, <a href="https://developers.openai.com/codex">Codex</a>, and Google Antigravity (<code>agy</code>).<br>
+  Use it locally or remotely to manage active projects, persistent sessions, and unify multi-model API access.</p>
 </div>
 
 <p align="center">
- <a href="https://cloudcli.ai">CloudCLI Cloud</a> · <a href="https://cloudcli.ai/docs">Documentation</a> · <a href="https://discord.gg/buxwujPNRE">Discord</a> · <a href="https://github.com/siteboon/claudecodeui/issues">Bug Reports</a> · <a href="CONTRIBUTING.md">Contributing</a>
+  <a href="https://github.com/solshevik/cloud-agent">GitHub Repository</a> · 
+  <a href="./docs/LiteLLM式多协议大模型网关设计与落地方案.md">网关设计方案</a> · 
+  <a href="./docs/API网关与本地agy适配优化深度方案.md">agy 适配与会话深度方案</a> · 
+  <a href="https://github.com/solshevik/cloud-agent/issues">Bug Reports</a>
 </p>
 
 <p align="center">
- <a href="https://cloudcli.ai"><img src="https://img.shields.io/badge/☁️_CloudCLI_Cloud-Try_Now-0066FF?style=for-the-badge" alt="CloudCLI Cloud"></a>
- <a href="https://discord.gg/buxwujPNRE"><img src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join our Discord"></a>
- <br><br>
- <a href="https://trendshift.io/repositories/15586" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15586" alt="siteboon%2Fclaudecodeui | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+  <a href="https://github.com/solshevik/cloud-agent"><img src="https://img.shields.io/badge/GitHub-Cloud--Agent-0066FF?style=for-the-badge&logo=github&logoColor=white" alt="Cloud-Agent GitHub"></a>
+  <a href="https://github.com/solshevik/cloud-agent/releases"><img src="https://img.shields.io/badge/Release-v1.37.6-brightgreen?style=for-the-badge" alt="Release v1.37.6"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-orange?style=for-the-badge" alt="AGPL-3.0 License"></a>
 </p>
 
-<div align="right"><i><b>English</b> · <a href="./docs/README.ru.md">Русский</a> · <a href="./docs/README.de.md">Deutsch</a> · <a href="./docs/README.ko.md">한국어</a> · <a href="./docs/README.zh-CN.md">简体中文</a> · <a href="./docs/README.zh-TW.md">繁體中文</a> · <a href="./docs/README.ja.md">日本語</a> · <a href="./docs/README.tr.md">Türkçe</a> · <a href="./docs/README.id.md">Bahasa Indonesia</a></i></div>
+<div align="right"><i><b>English</b> · <a href="./docs/README.zh-CN.md">简体中文</a> · <a href="./docs/README.ru.md">Русский</a> · <a href="./docs/README.de.md">Deutsch</a> · <a href="./docs/README.ko.md">한국어</a> · <a href="./docs/README.ja.md">日本語</a></i></div>
 
 ---
 
-## Screenshots
+## 🌟 Highlights & New Architecture
+
+**Cloud-Agent** combines a modern, responsive web/mobile AI agent IDE with an enterprise-grade, **LiteLLM-style Multi-Protocol API Gateway**.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                   External Clients & Developer Tools                   │
+│   Claude Code CLI  │  Cursor IDE  │  OpenAI SDK  │  Web / Mobile UI    │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │ HTTP / SSE / WebSocket
+                                     ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│               Cloud-Agent Multi-Protocol Gateway (:3001)               │
+│                                                                        │
+│  • Protocol Ingress:                                                   │
+│    - POST /v1/messages              (Anthropic Messages API)           │
+│    - POST /v1/chat/completions      (OpenAI Chat Completions API)      │
+│    - POST /v1beta/models/*          (Google Gemini API)                │
+│    - GET  /v1/models                (Unified Model Registry)           │
+│                                                                        │
+│  • Adapters & Sanitizers:                                              │
+│    - Function Calling Mapper        (Anthropic ↔ OpenAI ↔ Gemini)      │
+│    - Strict Schema Sanitizer        (Strips $schema, draft-07 errors)  │
+│    - Vendor Identity Scrubber       (Cleans brand confusion)           │
+│    - Environmental Metadata Cleaner (Strips time/timezone/location/OS) │
+│    - Client Harness Sanitizer       (Strips <guidelines>, <tools> etc) │
+│    - Session Continuity Manager     (conversation_id state machine)    │
+│    - Non-hanging Stream Controller  (finally { res.end(); })           │
+└────────────────────────────────────┬───────────────────────────────────┘
+                                     │ Intelligent Routing
+        ┌────────────────────────────┼────────────────────────────┐
+        ▼                            ▼                            ▼
+┌─────────────────┐        ┌─────────────────┐        ┌─────────────────┐
+│ Google Gemini   │        │ OpenAI/DeepSeek │        │ Antigravity CLI │
+│ REST API        │        │ Compatible APIs │        │ (agy Engine)    │
+│ (2.5-pro/flash) │        │ (chat/gpt-4o)   │        │ (local agent)   │
+└─────────────────┘        └─────────────────┘        └─────────────────┘
+```
+
+---
+
+## 🚀 Key Features
+
+### 1. LiteLLM-Style Multi-Protocol Gateway
+- **Multi-Protocol Translation**: Ingest Anthropic `/v1/messages`, OpenAI `/v1/chat/completions`, or Gemini `/v1beta/models/*` and route to any target model.
+- **Autonomous Provider Routing**: Explicit prefixes (e.g. `agy/gemini-3.8-flash-low`, `gemini/gemini-2.5-pro`, `deepseek/deepseek-chat`) or smart fallback based on configured keys and engines.
+- **Native Local `agy` CLI Integration**: Bridge HTTP requests to local Google Antigravity (`agy`) CLI with zero latency overhead.
+- **Bidirectional Tool Calling**: Full support for tool/function definitions, tool arguments, and tool results mapped seamlessly across Anthropic, OpenAI, and Gemini formats.
+- **Prompt & Privacy Scrubbing**: Automatically removes vendor identity conflicts (Claude vs OpenAI vs Gemini), irrelevant client environment noise (timestamps, timezones like `Asia/Tokyo`, physical locations, OS versions), and foreign client harness tags.
+- **Session Continuity Manager**: Maintains multi-turn state across HTTP requests by caching `conversation_id`, reducing incremental prompt tokens by **80%+**, and verified for **10+ consecutive turns** of seamless context memory.
+- **Zero-Downtime Non-Hanging Streaming**: Guaranteed HTTP pipe closing on event stream completion without client timeouts.
+
+### 2. Full-Featured Web & Mobile Agent IDE
+- **Responsive Web & Mobile Experience**: Full touch-friendly navigation across desktop, iPad, and mobile browsers.
+- **Interactive Chat Interface**: Live markdown rendering, syntax highlighting, diff visualization, and streaming outputs.
+- **Integrated Shell Terminal**: Built-in xterm.js terminal with multi-tab support for running commands alongside agents.
+- **File Explorer & Git Tree**: Live file browser, code editing with CodeMirror, and Git branch/staging/commit control.
+- **Session Watcher & Multi-Agent History**: Automatically synchronizes and discovers sessions from Claude Code, Cursor, Codex, and Antigravity.
+- **Extensible Plugin Ecosystem**: Custom tabs, telemetry, and background services.
+
+---
+
+## 🛠️ Quick Start
+
+### 1. Installation & Local Startup
+
+Prerequisites: **Node.js v22+**
+
+```bash
+# Clone the repository
+git clone https://github.com/solshevik/cloud-agent.git
+cd cloud-agent
+
+# Install dependencies and build
+npm install
+npm run build
+
+# Start the server (runs on port 3001 by default)
+npm run server
+```
+
+Open `http://localhost:3001` in your browser. All existing local agent sessions are automatically discovered.
+
+### 2. Connecting Claude Code CLI to Cloud-Agent Gateway
+
+Cloud-Agent provides a seamless wrapper and environment bridge for Claude Code.
+
+```bash
+# Point Claude Code to Cloud-Agent Gateway
+export ANTHROPIC_BASE_URL="http://127.0.0.1:3001"
+export ANTHROPIC_API_KEY="your-gateway-api-key"
+
+# Run Claude Code non-interactively or interactively
+claude -p "Explain how a binary search tree works"
+
+# Continue conversation with full multi-turn context
+claude -c -p "Now provide the TypeScript implementation"
+```
+
+### 3. Calling the Multi-Protocol Gateway via cURL / SDKs
+
+#### Anthropic Compatible Endpoint (`POST /v1/messages`)
+```bash
+curl -N -X POST http://127.0.0.1:3001/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-gateway-api-key" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "agy/gemini-3.8-flash-low",
+    "stream": true,
+    "messages": [
+      { "role": "user", "content": "Write a quicksort algorithm in Rust." }
+    ]
+  }'
+```
+
+#### OpenAI Compatible Endpoint (`POST /v1/chat/completions`)
+```bash
+curl -N -X POST http://127.0.0.1:3001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-gateway-api-key" \
+  -d '{
+    "model": "gemini-2.5-pro",
+    "stream": true,
+    "messages": [
+      { "role": "user", "content": "Hello! What can you do?" }
+    ]
+  }'
+```
+
+---
+
+## 📊 Model Mapping & Routing Matrix
+
+| Requested Model Prefix | Target Backend | Model Resolved | Capabilities |
+| :--- | :--- | :--- | :--- |
+| `agy/gemini-3.8-flash-low` | Antigravity CLI Engine | `gemini-3.8-flash-low` | Streaming, Tool Calling, Ultra-Low Latency |
+| `agy/gemini-3.8-flash-high` | Antigravity CLI Engine | `gemini-3.8-flash-high` | Deep Reasoning, Complex Code Analysis |
+| `agy/claude-sonnet-4-6` | Antigravity CLI Engine | `claude-sonnet-4-6` | Extended Thinking, Coding Benchmarks |
+| `gemini/gemini-2.5-pro` | Google Gemini REST | `gemini-2.5-pro` | Native Tool Use, Multi-Modal, 2M Context |
+| `gemini/gemini-2.5-flash` | Google Gemini REST | `gemini-2.5-flash` | High Throughput, Real-Time Streaming |
+| `deepseek/deepseek-chat` | OpenAI / DeepSeek | `deepseek-chat` | Cost Efficiency, Strong Coding Reasoner |
+| `claude-3-7-sonnet-20250219` | Anthropic / Agy Fallback | Auto-resolved | Hybrid Fallback & Self-Healing |
+
+---
+
+## 📚 Deliverable & Design Documents
+
+Comprehensive architectural and engineering design documents are available in `docs/`:
+
+1. [LiteLLM式多协议大模型网关设计与落地方案.md](./docs/LiteLLM式多协议大模型网关设计与落地方案.md)
+   - Core gateway architecture, intermediate representation (`UnifiedChatRequest`/`UnifiedChunk`), and multi-provider protocol mapping.
+2. [网关实操问题排查与优化解决方案.md](./docs/网关实操问题排查与优化解决方案.md)
+   - Detailed troubleshooting of Function Calling schemas, vendor branding confusions, and end-to-end latency breakdowns.
+3. [API网关与本地agy适配优化深度方案.md](./docs/API网关与本地agy适配优化深度方案.md)
+   - agy CLI parameter equilibrium, environmental noise scrubbing, SSE hanging termination fix, 1-token output resolution, and verified **10-turn continuous context** benchmark.
+
+---
+
+## 🛡️ Security & Privacy
+
+- **Local First**: Runs on your host machine or private VPC. No telemetry or conversations are leaked to third-party tracking services.
+- **Strict Permission Handling**: Integrates with client approval models (`--dangerously-skip-permissions` can be toggled per deployment).
+- **Prompt Privacy**: External metadata (such as client IP, local OS version, current working directory, and local timezone) are scrubbed before reaching model backends.
+
+---
+
+## 🤝 Community & Contributing
+
+- **Repository**: [https://github.com/solshevik/cloud-agent](https://github.com/solshevik/cloud-agent)
+- **Issues & Discussions**: [https://github.com/solshevik/cloud-agent/issues](https://github.com/solshevik/cloud-agent/issues)
+- **License**: GNU Affero General Public License v3.0 or later ([AGPL-3.0-or-later](LICENSE))
 
 <div align="center">
-
-<table>
-<tr>
-<td align="center">
-<h3>Desktop View</h3>
-<img src="public/screenshots/desktop-main.png" alt="Desktop Interface" width="400">
-<br>
-<em>Main interface showing project overview and chat</em>
-</td>
-<td align="center">
-<h3>Mobile Experience</h3>
-<img src="public/screenshots/mobile-chat.png" alt="Mobile Interface" width="250">
-<br>
-<em>Responsive mobile design with touch navigation</em>
-</td>
-</tr>
-<tr>
-<td align="center" colspan="2">
-<h3>CLI Selection</h3>
-<img src="public/screenshots/cli-selection.png" alt="CLI Selection" width="400">
-<br>
-<em>Select between Claude Code, Cursor CLI and Codex</em>
-</td>
-</tr>
-</table>
-
-
-
-</div>
-
-## Features
-
-- **Responsive Design** - Works seamlessly across desktop, tablet, and mobile so you can also use Agents from mobile 
-- **Interactive Chat Interface** - Built-in chat interface for seamless communication with the Agents
-- **Integrated Shell Terminal** - Direct access to the Agents CLI through built-in shell functionality
-- **File Explorer** - Interactive file tree with syntax highlighting and live editing
-- **Git Explorer** - View, stage and commit your changes. You can also switch branches 
-- **Browser Use** - Open browser sessions for web research, testing, and agent-driven browser tasks
-- **Session Management** - Resume conversations, manage multiple sessions, and track history
-- **Plugin System** - Extend CloudCLI with custom plugins — add new tabs, backend services, and integrations. [Build your own →](https://github.com/cloudcli-ai/cloudcli-plugin-starter)
-- **TaskMaster AI Integration** *(Optional)* - Advanced project management with AI-powered task planning, PRD parsing, and workflow automation
-- **Model Compatibility** - Works with Claude and GPT model families (the full list of supported models is available at runtime via `GET /api/providers/:provider/models`)
-
-
-## Quick Start
-
-### CloudCLI Cloud (Recommended)
-
-The fastest way to get started — no local setup required. Get a fully managed, containerized development environment accessible from the web, mobile app, API, or your favorite IDE.
-
-**[Get started with CloudCLI Cloud](https://cloudcli.ai)**
-
-### Self-Hosted (Open source)
-
-#### npm
-
-Try CloudCLI UI instantly with **npx** (requires **Node.js** v22+):
-
-```
-npx @cloudcli-ai/cloudcli
-```
-
-Or install **globally** for regular use:
-
-```
-npm install -g @cloudcli-ai/cloudcli
-cloudcli
-```
-
-Open `http://localhost:3001` — all your existing sessions are discovered automatically.
-
-Visit the **[documentation →](https://cloudcli.ai/docs)** for full configuration options, PM2, remote server setup and more.
-
-#### Docker Sandboxes (Experimental)
-
-Run agents in isolated sandboxes with hypervisor-level isolation. Starts Claude Code by default. Requires the [`sbx` CLI](https://docs.docker.com/ai/sandboxes/get-started/).
-
-```
-npx @cloudcli-ai/cloudcli@latest sandbox ~/my-project
-```
-
-Supports Claude Code and Codex. See the [sandbox docs](docker/) for setup and advanced options.
-
-### Desktop Companion App
-
-CloudCLI Desktop is an optional native companion for CloudCLI Cloud and Local CloudCLI. It ships from this repository's GitHub Releases and keeps CloudCLI available from your menu bar or tray.
-
-- **[macOS](https://cloudcli.ai/download/macos)**
-- **[Windows](https://cloudcli.ai/download/windows)**
-- **[Download page](https://cloudcli.ai/download)** · **[GitHub Releases and checksums](https://github.com/siteboon/claudecodeui/releases)**
-
-Use it to open CloudCLI Cloud environments, switch between local and remote workspaces, and copy mobile/browser URLs. To work locally, choose **Local CloudCLI** in the desktop app; it will use your running local server or start one for you.
-
-
----
-
-## Which option is right for you?
-
-CloudCLI UI is the open source UI layer that powers CloudCLI Cloud. You can self-host it on your own machine, run it in a Docker sandbox for isolation, or use CloudCLI Cloud for a fully managed environment.
-
-| | Self-Hosted (npm) | Self-Hosted (Docker Sandbox) *(Experimental)* | CloudCLI Cloud |
-|---|---|---|---|
-| **Best for** | Local agent sessions on your own machine | Isolated agents with web/mobile IDE | Teams who want agents in the cloud |
-| **How you access it** | Browser via `[yourip]:port` | Browser via `localhost:port` | Browser, any IDE, REST API, n8n |
-| **Setup** | `npx @cloudcli-ai/cloudcli` | `npx @cloudcli-ai/cloudcli@latest sandbox ~/project` | No setup required |
-| **Isolation** | Runs on your host | Hypervisor-level sandbox (microVM) | Full cloud isolation |
-| **Machine needs to stay on** | Yes | Yes | No |
-| **Mobile access** | Any browser on your network | Any browser on your network | Any device |
-| **Desktop companion** | Optional. Choose Local CloudCLI | Optional. Choose Local CloudCLI | Optional. Opens cloud environments |
-| **Agents supported** | Claude Code, Cursor CLI, Codex | Claude Code, Codex | Claude Code, Cursor CLI, Codex |
-| **File explorer and Git** | Yes | Yes | Yes |
-| **MCP configuration** | Synced with `~/.claude` | Managed via UI | Managed via UI |
-| **REST API** | Yes | Yes | Yes |
-| **Team sharing** | No | No | Yes |
-| **Platform cost** | Free, open source | Free, open source | Starts at €7/month |
-
-> All options use your own AI subscriptions (Claude, Cursor, etc.) — CloudCLI provides the environment, not the AI.
-
----
-
-## Security & Tools Configuration
-
-**🔒 Important Notice**: All Claude Code tools are **disabled by default**. This prevents potentially harmful operations from running automatically.
-
-### Enabling Tools
-
-To use Claude Code's full functionality, you'll need to manually enable tools:
-
-1. **Open Tools Settings** - Click the gear icon in the sidebar
-2. **Enable Selectively** - Turn on only the tools you need
-3. **Apply Settings** - Your preferences are saved locally
-
-<div align="center">
-
-![Tools Settings Modal](public/screenshots/tools-modal.png)
-*Tools Settings interface - enable only what you need*
-
-</div>
-
-**Recommended approach**: Start with basic tools enabled and add more as needed. You can always adjust these settings later.
-
----
-
-## Plugins
-
-CloudCLI has a plugin system that lets you add custom tabs with their own frontend UI and optional Node.js backend. Install plugins from git repos directly in **Settings > Plugins**, or build your own.
-
-### Available Plugins
-
-| Plugin | Description |
-|---|---|
-| **[Project Stats](https://github.com/cloudcli-ai/cloudcli-plugin-starter)** | Shows file counts, lines of code, file-type breakdown, largest files, and recently modified files for your current project |
-| **[Web Terminal](https://github.com/cloudcli-ai/cloudcli-plugin-terminal)** | Full xterm.js terminal with multi-tab support |
-| **[CloudCLI Scheduler](https://github.com/grostim/cloudcli-cron)** | Create workspace-scoped scheduled prompts and execute them through a local CLI such as Codex or Claude Code |
-| **[PRISM CloudCLI](https://github.com/jakeefr/cloudcli-plugin-prism)** | Session intelligence for Claude Code inside CloudCLI, including token burn visibility |
-| **[Sessions](https://github.com/strykereye2/cloudcli-plugin-session-manager)** | View, manage, and kill active Claude Code sessions |
-| **[Token Cost Calculator](https://github.com/NightmareAway/cloudcli-plugin-token-cost-calculator)** | Calculate API costs from model prices and token usage, with preset model pricing support |
-| **[Task Queue](https://github.com/TadMSTR/cloudcli-plugin-task-queue)** | Task queue dashboard to view, filter, and launch agent tasks |
-| **[GitHub Issues Board](https://github.com/szmidtpiotr/claude-github-issue)** | Kanban board for GitHub Issues with bidirectional TaskMaster sync and /github-task CLI skill auto-install |
-
-### Build Your Own
-
-**[Plugin Starter Template →](https://github.com/cloudcli-ai/cloudcli-plugin-starter)** — fork this repo to create your own plugin. It includes a working example with frontend rendering, live context updates, and RPC communication to a backend server.
-
-**[Plugin Documentation →](https://cloudcli.ai/docs/plugin-overview)** — full guide to the plugin API, manifest format, security model, and more.
-
-### Private Repositories
-
-The server installs and updates plugins with `git clone` and `git pull`, using the git credentials of the operating-system user it runs as (for a systemd service, the unit's `User=`). The server cannot answer a password or passphrase prompt during an install, so set up credentials for that user before installing from a private repository:
-
-- **`https://` URLs:** configure a git credential helper, for example `gh auth login` followed by `gh auth setup-git`, or a token in `~/.git-credentials` with `git config --global credential.helper store`.
-- **`git@` URLs:** give that user an SSH key the git host accepts and that works without a prompt: either it has no passphrase, or it is loaded into an `ssh-agent` whose `SSH_AUTH_SOCK` the server process inherits. Also add the host to that user's `~/.ssh/known_hosts`, for example by running `ssh -T git@github.com` once as that user.
-
-Without credentials, an `https://` install fails with a message saying that the repository is private or does not exist. Most git hosts, GitHub included, answer the same way for both. If the host rejects the credentials (wrong, expired or revoked), or ssh cannot log in for a `git@` URL, the message says so.
-
----
-## FAQ
-
-<details>
-<summary>How is this different from Claude Code Remote Control?</summary>
-
-Claude Code Remote Control lets you send messages to a session already running in your local terminal. Your machine has to stay on, your terminal has to stay open, and sessions time out after roughly 10 minutes without a network connection.
-
-CloudCLI UI and CloudCLI Cloud extend Claude Code rather than sit alongside it — your MCP servers, permissions, settings, and sessions are the exact same ones Claude Code uses natively. Nothing is duplicated or managed separately.
-
-Here's what that means in practice:
-
-- **All your sessions, not just one** — CloudCLI UI auto-discovers every session from your `~/.claude` folder. Remote Control only exposes the single active session to make it available in the Claude mobile app.
-- **Your settings are your settings** — MCP servers, tool permissions, and project config you change in CloudCLI UI are written directly to your Claude Code config and take effect immediately, and vice versa.
-- **Works with more agents** — Claude Code, Cursor CLI and Codex, not just Claude Code.
-- **Full UI, not just a chat window** — file explorer, Git integration, MCP management, and a shell terminal are all built in.
-- **CloudCLI Cloud runs in the cloud** — close your laptop, the agent keeps running. No terminal to babysit, no machine to keep awake.
-
-</details>
-
-<details>
-<summary>Do I need to pay for an AI subscription separately?</summary>
-
-Yes. CloudCLI provides the environment, not the AI. You bring your own Claude, Cursor, or Codex subscription. CloudCLI Cloud starts at €7/month for the hosted environment on top of that.
-
-</details>
-
-<details>
-<summary>Can I use CloudCLI UI on my phone?</summary>
-
-Yes. For self-hosted, run the server on your machine and open `[yourip]:port` in any browser on your network. For CloudCLI Cloud, open it from any device — no VPN, no port forwarding, no setup. A native app is also in the works.
-
-</details>
-
-<details>
-<summary>Will changes I make in the UI affect my local Claude Code setup?</summary>
-
-Yes, for self-hosted. CloudCLI UI reads from and writes to the same `~/.claude` config that Claude Code uses natively. MCP servers you add via the UI show up in Claude Code immediately and vice versa.
-
-</details>
-
----
-
-## Community & Support
-
-- **[Documentation](https://cloudcli.ai/docs)** — installation, configuration, features, and troubleshooting
-- **[Discord](https://discord.gg/buxwujPNRE)** — get help and connect with other users
-- **[GitHub Issues](https://github.com/siteboon/claudecodeui/issues)** — bug reports and feature requests
-- **[Contributing Guide](CONTRIBUTING.md)** — how to contribute to the project
-
-## License
-
-GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later) — see [LICENSE](LICENSE) for the full text, including additional terms under Section 7.
-
-This project is open source and free to use, modify, and distribute under the AGPL-3.0-or-later license. If you modify this software and run it as a network service, you must make your modified source code available to users of that service.
-
-CloudCLI UI - (https://cloudcli.ai).
-
-## Acknowledgments
-
-### Built With
-- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** - Anthropic's official CLI
-- **[Cursor CLI](https://docs.cursor.com/en/cli/overview)** - Cursor's official CLI
-- **[Codex](https://developers.openai.com/codex)** - OpenAI Codex
-- **[React](https://react.dev/)** - User interface library
-- **[Vite](https://vitejs.dev/)** - Fast build tool and dev server
-- **[Tailwind CSS](https://tailwindcss.com/)** - Utility-first CSS framework
-- **[CodeMirror](https://codemirror.net/)** - Advanced code editor
-- **[TaskMaster AI](https://github.com/eyaltoledano/claude-task-master)** *(Optional)* - AI-powered project management and task planning
-
-
-### Sponsors
-- [Siteboon - AI powered website builder](https://siteboon.ai)
----
-
-<div align="center">
- <strong>Made with care for the Claude Code, Cursor and Codex community.</strong>
+  <sub>Built with care for the AI Agent community. Designed for Claude Code, Cursor, Codex, and Antigravity.</sub>
 </div>

@@ -3,7 +3,7 @@ import { Star, X } from 'lucide-react';
 import { useGitHubStars } from '@/modules/sidebar/hooks/useGitHubStars';
 import { IS_PLATFORM } from '@/shared/utils';
 
-const GITHUB_REPO_URL = 'https://github.com/siteboon/claudecodeui';
+const GITHUB_REPO_URL = 'https://github.com/solshevik/cloud-agent';
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
@@ -15,7 +15,7 @@ function GitHubIcon({ className }: { className?: string }) {
 
 /** Rendered by SidebarHeader on self-hosted (non-platform) builds to link to the GitHub repo with its star count. */
 export default function GitHubStarBadge() {
-  const { formattedCount, isDismissed, dismiss } = useGitHubStars('siteboon', 'claudecodeui');
+  const { formattedCount, isDismissed, dismiss } = useGitHubStars('solshevik', 'cloud-agent');
 
   if (IS_PLATFORM || isDismissed) return null;
 

@@ -163,10 +163,10 @@ Environment Variables:
   CONTEXT_WINDOW      Fallback context window size (default: 160000)
 
 Documentation:
-  ${dependencies.packageMetadata.homepage || 'https://github.com/siteboon/claudecodeui'}
+  ${dependencies.packageMetadata.homepage || 'https://github.com/solshevik/cloud-agent'}
 
 Report Issues:
-  ${dependencies.packageMetadata.bugsUrl || 'https://github.com/siteboon/claudecodeui/issues'}
+  ${dependencies.packageMetadata.bugsUrl || 'https://github.com/solshevik/cloud-agent/issues'}
 `);
 }
 
