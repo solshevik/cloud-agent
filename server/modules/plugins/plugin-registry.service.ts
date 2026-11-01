@@ -163,7 +163,10 @@ export function scanPlugins() {
   const seenNames = new Set();
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    const isDir = entry.isDirectory() || (entry.isSymbolicLink() && (() => {
+      try { return fs.statSync(path.join(pluginsDir, entry.name)).isDirectory(); } catch { return false; }
+    })());
+    if (!isDir) continue;
     // Skip transient temp directories from in-progress installs
     if (entry.name.startsWith('.tmp-')) continue;
 
